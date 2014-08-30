@@ -13,12 +13,18 @@ static int setup_server_socket(unsigned short port) {
 	static struct sockaddr_in server_addr;
 
 	if ((server_fd = socket(PF_INET, SOCK_STREAM, 0)) == -1) {
-		fprintf(stderr, "Failed creating socket.\n");
+		perror("Failed creating socket.");
 		return -1;
 	}
 
 	if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) < 0) {
-		fprintf(stderr, "setsockopt failed.\n");
+		perror("setsockopt failed.");
+		return -1;
+	}
+
+	//don't generate SIGPIPE
+	if (setsockopt(server_fd, SOL_SOCKET, SO_NOSIGPIPE, &yes, sizeof(int)) < 0) {
+		perror("setsockopt failed.");
 		return -1;
 	}
 
@@ -29,13 +35,13 @@ static int setup_server_socket(unsigned short port) {
 
 	if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr))) {
 		close(server_fd);
-		fprintf(stderr, "Failed binding socket.\n");
+		perror("Failed binding socket.");
 		return -1;
 	}
 
 	if (listen(server_fd, DEFAULT_BACKLOG)) {
 		close(server_fd);
-		fprintf(stderr, "Failed listening on socket.\n");
+		perror("Failed listening on socket.");
 		return -1;
 	}
 
@@ -55,10 +61,7 @@ void serve(unsigned short port) {
 
 	char buf[MAXBUF];
 
-	if ((server_fd = setup_server_socket(port)) == -1) {
-		fprintf(stderr, "Failed seting up server socket.\n");
-		return;
-	}
+	if ((server_fd = setup_server_socket(port)) == -1) return;
 
 	FD_ZERO(&master);
 	FD_SET(server_fd, &master);
@@ -70,18 +73,18 @@ void serve(unsigned short port) {
 		read_fds = master;
 
 		if (select(fd_max + 1, &read_fds, NULL, NULL, NULL) == -1) {
-			fprintf(stderr, "select error");
+			perror("select error");
 			return;
 		}
 
 		for (i = 0; i < fd_max + 1; ++i) {
 			if (FD_ISSET(i, &read_fds)) {
 				if (i == server_fd) {	//New request!
-					puts("incoming requests!");
-					if ((client_fd = accept(server_fd, (struct sockaddr *)&client_addr, 
-											  (socklen_t *)&client_addr_len)) == -1) {
+					fprintf(stderr, "incoming requests!\n");
+					if ((client_fd = accept(server_fd, (struct sockaddr *)&client_addr,
+								   		    (socklen_t *)&client_addr_len)) == -1) {
 						close(server_fd);
-						fprintf(stderr, "Error accepting connection.\n");
+						perror("Error accepting connection.");
 						return;
 					}
 
@@ -90,24 +93,22 @@ void serve(unsigned short port) {
 						fd_max = client_fd;
 				} else {	//More data from current request
 					nbytes = recv(i, buf, sizeof(buf), 0);
-					if (nbytes < 0) {
-						fprintf(stderr, "recv error!");
-						return;
-					}
+					if (nbytes < 0)
+						perror("recv error!");
+
 					if (nbytes == 0) {
+						fprintf(stderr, "connection ends.\n");
 						close(i);
 						FD_CLR(i, &master);
 					}
+
 					if (nbytes > 0) {
 						puts(buf);
-						if (send(i, buf, nbytes, 0) == -1) {
-							fprintf(stderr, "send error!");
-							return;
-						}
+						if (send(i, buf, nbytes, 0) == -1)
+							perror("send error!");
 					}
 				}	//End IO processing
 			}	//End if (FD_ISSET)
 		}	//End for i
 	}
-
 }
