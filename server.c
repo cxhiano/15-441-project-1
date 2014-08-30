@@ -57,9 +57,9 @@ void serve(unsigned short port) {
 	int fd_max;		//Keep track of max fd passed into select
 
 	int i; //Iteration variables
-	int nbytes;
+	int nbytes, bytessend;
 
-	char buf[MAXBUF];
+	char buf[MAXBUFSIZE];
 
 	if ((server_fd = setup_server_socket(port)) == -1) return;
 
@@ -102,10 +102,13 @@ void serve(unsigned short port) {
 						FD_CLR(i, &master);
 					}
 
-					if (nbytes > 0) {
-						puts(buf);
-						if (send(i, buf, nbytes, 0) == -1)
+					while (nbytes > 0) {
+						bytessend = send(i, buf, nbytes, 0);
+						if (bytessend <= 0) {
 							perror("send error!");
+							break;
+						}
+						nbytes -= bytessend;
 					}
 				}	//End IO processing
 			}	//End if (FD_ISSET)
