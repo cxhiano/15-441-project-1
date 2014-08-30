@@ -1,20 +1,17 @@
-################################################################################
-# Makefile                                                                     #
-#                                                                              #
-# Description: This file contains the make rules for Recitation 1.             #
-#                                                                              #
-# Authors: Athula Balachandran <abalacha@cs.cmu.edu>,                          #
-#          Wolf Richter <wolf@cs.cmu.edu>                                      #
-#                                                                              #
-################################################################################
+CC=gcc
+CFLAGS=-Wall -Werror -g
+LDFLAGS=
+SRCS=server.h server.c config.h lisod.c MakeFile
 
-default: echo_server echo_client
+all: lisod
 
-echo_server:
-	@gcc echo_server.c -o echo_server -Wall -Werror
+lisod: lisod.o server.o
 
-echo_client:
-	@gcc echo_client.c -o echo_client -Wall -Werror
+lisod.o: lisod.c config.h server.h
+	$(CC) $(CFLAGS) -c lisod.c config.h server.h
 
-clean:
-	@rm echo_server echo_client
+server.o: server.c server.h
+	$(CC) $(CFLAGS) -c server.c server.h
+
+clean: 
+	rm -rf *.o *.gch lisod
