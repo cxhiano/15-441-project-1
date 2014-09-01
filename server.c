@@ -5,7 +5,9 @@
 #include <netinet/ip.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include "server.h"
+#include "io.h"
 
 static int setup_server_socket(unsigned short port) {
 	static int yes = 1; //For set setsockopt
@@ -57,9 +59,9 @@ void serve(unsigned short port) {
 	int fd_max;		//Keep track of max fd passed into select
 
 	int i; //Iteration variables
-	int nbytes, bytessend;
+	int nbytes;
 
-	char buf[MAXBUFSIZE];
+	buf_t buf;
 
 	if ((server_fd = setup_server_socket(port)) == -1) return;
 
@@ -89,27 +91,23 @@ void serve(unsigned short port) {
 					}
 
 					FD_SET(client_fd, &master);
+
+					fcntl(client_fd, F_SETFL, O_NONBLOCK);
+
 					if (client_fd > fd_max)
 						fd_max = client_fd;
 				} else {	//More data from current request
-					nbytes = recv(i, buf, sizeof(buf), 0);
-					if (nbytes < 0)
-						perror("recv error!");
+					io_init(&buf);
+					nbytes = io_recvall(i, &buf);
 
 					if (nbytes == 0) {
-						fprintf(stderr, "connection ends.\n");
+						fprintf(stderr, "Connection ends.\n");
 						close(i);
 						FD_CLR(i, &master);
 					}
 
-					while (nbytes > 0) {
-						bytessend = send(i, buf, nbytes, 0);
-						if (bytessend <= 0) {
-							perror("send error!");
-							break;
-						}
-						nbytes -= bytessend;
-					}
+					io_send(i, &buf);
+					io_deinit(&buf);
 				}	//End IO processing
 			}	//End if (FD_ISSET)
 		}	//End for i

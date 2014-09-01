@@ -4,7 +4,6 @@
 #include "config.h"
 
 #define DEFAULT_BACKLOG 1024
-#define MAXBUFSIZE 4096
 
 void serve(unsigned short port);
 
