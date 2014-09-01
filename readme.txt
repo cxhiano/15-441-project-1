@@ -48,9 +48,8 @@
 
 [IMP-4] Description of Implementation
 --------------------------------------------------------------------------------
-When setting up the listenning socket, setsockopt was called to disable the
-listenning socket from generating SIGPIPE. All socket will be put into a file
-descriptor list handled by select().
+SIGPIPE is set to be ignored before server starts accepting requests.
+All socket will be put into a file descriptor list handled by select().
 
 The server repeatedly call select(). Each time select() returns, the server will
 find active file descriptors.

@@ -23,7 +23,9 @@
 int io_recvall(int sock, buf_t *bp) {
     int nbytes;
 
+    fprintf(stderr, "recv start.\n");
     while ((nbytes = recv(sock, bp->buf + bp->datasize, bp->bufsize - bp->datasize - 1, 0)) > 0) {
+        fprintf(stderr, "----%d bytes data received.\n", nbytes);
         bp->datasize += nbytes;
 
         //More data! Allocate more memory
@@ -43,6 +45,8 @@ int io_recvall(int sock, buf_t *bp) {
         return nbytes;
     }
 
+    fprintf(stderr, "recv complete. %d bytes of data received.\n", bp->datasize);
+
     return bp->datasize;
 }
 
@@ -59,15 +63,19 @@ int io_recvall(int sock, buf_t *bp) {
 int io_send(int sock, buf_t *bp) {
     int bytes_sent = 0, nbytes;
 
+    fprintf(stderr, "Send start! %d bytes data to be sent.\n", bp->datasize);
     while (bytes_sent < bp->datasize) {
         nbytes = send(sock, bp->buf + bytes_sent, bp->datasize - bytes_sent, 0);
+
         if (nbytes < 0) {
             perror("send error!");
             return -1;
         }
 
+        fprintf(stderr, "----%d bytes data sent.\n", bp->datasize);
         bytes_sent += nbytes;
     }
+    fprintf(stderr, "Send complete. %d bytes of data sent\n", bytes_sent);
 
     return bytes_sent;
 }

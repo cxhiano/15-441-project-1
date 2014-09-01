@@ -1,0 +1,13 @@
+Test Case 1: Test with SIGPIPE
+
+This test case tests the server's ability to handle with SIGPIPE. In this
+test case, the client close the connection right before the server calls
+send() to send data back.
+-------------------------------------------------------------------------------
+1. Run lisod inside gdb, before running, set a breakpoint at function io_send.
+2. Use netcat to send arbitrary data to Liso server.
+3. At this point, the breakpoint should be hit. Without continueing lisod,
+   terminate netcat.
+4. Continue running lisod and it will try to send data to an already closed
+   socket and a SIGPIPE will be generated. See if the server terminates when
+   receiving SIGPIPE.

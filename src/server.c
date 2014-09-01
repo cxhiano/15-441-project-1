@@ -14,7 +14,7 @@
 
 //Create and config a socket on given port.
 static int setup_server_socket(unsigned short port) {
-	static int yes = 1; //For set setsockopt
+	static int yes = 1; //For setsockopt
 	int server_fd;
 	static struct sockaddr_in server_addr;
 
@@ -25,12 +25,6 @@ static int setup_server_socket(unsigned short port) {
 
 	//Enable duplicate address and port binding
 	if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) < 0) {
-		perror("setsockopt failed.");
-		return -1;
-	}
-
-	//don't generate SIGPIPE
-	if (setsockopt(server_fd, SOL_SOCKET, SO_NOSIGPIPE, &yes, sizeof(int)) < 0) {
 		perror("setsockopt failed.");
 		return -1;
 	}
@@ -78,6 +72,9 @@ void serve(unsigned short port) {
 
 	if ((server_fd = setup_server_socket(port)) == -1) return;
 
+	//Ignore SIGPIPE
+	signal(SIGPIPE, SIG_IGN);
+
 	//initialize fd lists
 	FD_ZERO(&master);
 	FD_SET(server_fd, &master);
@@ -90,7 +87,7 @@ void serve(unsigned short port) {
 
 		if (select(fd_max + 1, &read_fds, NULL, NULL, NULL) == -1) {
 			perror("select error");
-			return;
+			continue;
 		}
 
 		for (i = 0; i < fd_max + 1; ++i) {
@@ -103,6 +100,7 @@ void serve(unsigned short port) {
 						continue;
 					}
 
+					//Add socket to fd list
 					FD_SET(client_fd, &master);
 
 					//Make client_fd a non-blocking socket
@@ -118,9 +116,9 @@ void serve(unsigned short port) {
 					if (nbytes <= 0) {
 						close(i);
 						FD_CLR(i, &master);
+					} else {
+						io_send(i, &buf);
 					}
-
-					io_send(i, &buf);
 
 					io_deinit(&buf);
 				}	//End IO processing
