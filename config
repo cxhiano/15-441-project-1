@@ -1,8 +1,0 @@
-http_port=80
-https_port=443
-log_file="./log"
-lockfile=""
-www_folder=""
-cgi_folder=""
-private_key_file=""
-certificate_file=""
