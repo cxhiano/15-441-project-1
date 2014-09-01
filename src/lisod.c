@@ -31,4 +31,6 @@ int main(int argc, char* argv[])
 	http_port = atoi(argv[1]);
 
 	serve(http_port);
+
+	return 0;
 }

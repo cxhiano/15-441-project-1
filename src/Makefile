@@ -1,7 +1,6 @@
 CC=gcc
 CFLAGS=-Wall -Werror -g
 LDFLAGS=
-SRCS=Makefile server.h server.c config.h lisod.c io.h io.c
 
 all: lisod
 
@@ -18,3 +17,6 @@ io.o: io.c io.h
 
 clean:
 	rm -rf *.o *.gch lisod
+
+tar:
+	(make clean; cd ../..; tar cvf 15-441-project-1.tar 15-441-project-1)
