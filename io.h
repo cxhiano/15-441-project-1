@@ -1,7 +1,7 @@
 #ifndef __MYIO_H__
 #define __MYIO_H__
 
-#define INIT_BUFFERSIZE 1024
+#define INIT_BUFFERSIZE 1024    //Initial buffer size
 
 typedef struct {
     void* buf;

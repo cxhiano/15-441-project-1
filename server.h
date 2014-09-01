@@ -3,7 +3,7 @@
 
 #include "config.h"
 
-#define DEFAULT_BACKLOG 1024
+#define DEFAULT_BACKLOG 1024    //The second argument passed into listen()
 
 void serve(unsigned short port);
 
