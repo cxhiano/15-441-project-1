@@ -85,7 +85,8 @@ void serve(unsigned short port) {
 
 	int fd_max;		//Keep track of max fd passed into select()
 
-	client_list_t *client, *prev;
+	client_list_t *client,
+				  *prev; //previous item in linked list when iterating
 	int nbytes;
 
 	if ((server_fd = setup_server_socket(port)) == -1) return;
@@ -145,7 +146,9 @@ void serve(unsigned short port) {
 				nbytes = io_send(client->fd, client->buf);
 
 			if (nbytes <= 0) { //Delete client
-				FD_CLR(client->fd, &master);
+				FD_CLR(client->fd, &master); //Remove from fd set
+
+				//Remove from the linked list
 				if (prev == NULL)
 					client_head = client->next;
 				else

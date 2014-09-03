@@ -9,17 +9,58 @@
 #include <unistd.h>
 #include "io.h"
 
+//The buffer is full and need to be expand?
+static inline int full(buf_t *bp) {
+    return bp->datasize + INIT_BUFFERSIZE > bp->bufsize;
+}
+
+//The buffer is empty and should be shrink?
+static inline int empty(buf_t *bp) {
+    int freespace = bp->bufsize - bp->datasize + bp->writehead;
+    return freespace > INIT_BUFFERSIZE;
+}
+
+/*
+ * io_shrink - shrink buffer size
+ *
+ * Move data which has not yet been sent to the head of buffer and then deduce
+ * the free memory by half.
+ */
+static void io_shrink(buf_t *bp) {
+    int freespace;
+
+    fprintf(stderr, "Start shrinking buffer. bufsize: %d datasize: %d writehead: %d\n",
+            bp->bufsize, bp->datasize, bp->writehead);
+
+    //calculate free memory
+    freespace = bp->bufsize - bp->datasize + bp->writehead;
+    //move data to the head of buffer
+    bp->datasize -= bp->writehead;
+    memmove(bp->buf, bp->buf + bp->writehead, bp->datasize);
+    bp->writehead = 0;
+    //cut of half of the free space
+    bp->bufsize -= freespace >> 1;
+
+    bp->buf = realloc(bp->buf, bp->bufsize);
+
+    fprintf(stderr, "Shrinking completed. bufsize: %d datasize: %d writehead: %d\n",
+            bp->bufsize, bp->datasize, bp->writehead);
+}
+
 /*
  * io_recv - Try to recv as much data as possible
  *
  * Call recv() until connection closed or error occurs. Required non-blocking
  * socket. When there's temporily no more data, recv will return -1 and set
  * errno to EWOULDBLOCK or EAGAIN. Each time received data size exceed half
- * of buffer size, buffer will double its capacity. Return size of received
- * data if no error occurs, 0 if connection has benn closed, -1 on error.
- * ---------------------------------------------------
+ * of buffer size, buffer will increase its capacity.
+ * ----------------------------------------------------------------------------
  *  Args:
  *      bp - a pointer to a buf_t struct
+ *  Returns:
+ *      number of bytes received
+ *      0: Connection closed
+ *      -1: error
  */
 int io_recv(int sock, buf_t *bp) {
     int nbytes;
@@ -30,7 +71,7 @@ int io_recv(int sock, buf_t *bp) {
         bp->datasize += nbytes;
 
         //More data! Allocate more memory
-        if (bp->datasize * 2 >= bp->bufsize) {
+        if (full(bp)) {
             bp->bufsize += bp->bufsize >> 1;
             bp->buf = realloc(bp->buf, bp->bufsize);
         }
@@ -55,14 +96,16 @@ int io_recv(int sock, buf_t *bp) {
  * io_send - Send data to socket sock
  *
  * Repeatedly call send() to send data in buffer to socket sock until all the
- * data is sent. Return size of sent data if no error occurs, -1 on error.
+ * data is sent.
  * ----------------------------------------------------------------------------
  * Args:
  *      bp - a pointer to a buf_t struct
+ * Returns:
+ *      number of bytes sent
+ *      -1: error
  */
 int io_send(int sock, buf_t *bp) {
-    int bytes_sent = 0, nbytes,
-        freespace;
+    int bytes_sent = 0, nbytes;
 
     fprintf(stderr, "Send start! %d bytes data to be sent to socket %d.\n",
             bp->datasize - bp->writehead, sock);
@@ -71,11 +114,12 @@ int io_send(int sock, buf_t *bp) {
         nbytes = send(sock, bp->buf + bp->writehead, bp->datasize - bp->writehead, 0);
 
         if (nbytes < 0) {
-            perror("send error!");
             if (errno == EAGAIN || errno == EWOULDBLOCK)
                 break;
-            else
+            else {
+                perror("send error!");
                 return -1;
+            }
         }
 
         fprintf(stderr, "----%d bytes data sent.\n", nbytes);
@@ -84,34 +128,11 @@ int io_send(int sock, buf_t *bp) {
     }
     fprintf(stderr, "Send complete. %d bytes of data sent to socket %d\n", bytes_sent, sock);
 
-    //Shrink buffer when free space in the buffer is to large
-    freespace = bp->bufsize - bp->datasize + bp->writehead;
-    if (freespace > INIT_BUFFERSIZE)
+    //Shrink buffer when there is too much free space in the buffer
+    if (empty(bp))
         io_shrink(bp);
 
     return bytes_sent;
-}
-
-/*
- * io_shrink
- */
-void io_shrink(buf_t *bp) {
-    int freespace;
-
-    fprintf(stderr, "Start shrinking buffer. bufsize: %d datasize: %d writehead: %d\n",
-            bp->bufsize, bp->datasize, bp->writehead);
-    freespace = bp->bufsize - bp->datasize + bp->writehead;
-    //move data to the head of buffer
-    bp->datasize -= bp->writehead;
-    memmove(bp->buf, bp->buf + bp->writehead, bp->datasize);
-    bp->writehead = 0;
-    //cut of half of the free space
-    bp->bufsize -= freespace >> 1;
-
-    bp->buf = realloc(bp->buf, bp->bufsize);
-
-    fprintf(stderr, "Shrinking completed. bufsize: %d datasize: %d writehead: %d\n",
-            bp->bufsize, bp->datasize, bp->writehead);
 }
 
 void io_init(buf_t *bp) {

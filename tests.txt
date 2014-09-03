@@ -16,12 +16,26 @@ calls send() to send data back.
 
 Test Case 2: Test with Large Data
 
-Decription: Send very large data to server. Observe buffer shrinking behavior
+Decription: Use large_data.py to send very large data to server.
+-------------------------------------------------------------------------------
+large_data.py:
+1. Send specific size of data to the server.
+2. With 50% probabiltiy, close the connection immdiately after sending data.
+   And with 50% probability, receive a random amount of data from the server.
+   The purpose is this is to make the connection abnormal.
+3. Established a new connection to the server.
+4. Send and receive data to
 *******************************************************************************
 
 Test Case 3: Test Linked list
 
 Decription: The server uses linked list to maintain client sockets, the purpose
-of this test case is to see whether the linked list operate correctly. In
-linked_list_checker.py, the client establishes serveral connections to the
-server and closes those connections in random order.
+of this test case is to see whether the linked list operate correctly.
+-------------------------------------------------------------------------------
+linked_list.py:
+1. Establish serveral connections to the server.
+2. Close those connections in random order.
+*******************************************************************************
+
+Test Case 4: Memory Leak
+

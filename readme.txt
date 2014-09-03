@@ -36,6 +36,10 @@
                     .../src/io.c                    - Socket IO functions
 
                     .../test/cp1_checker.py         - Python test script for CP1
+                    .../test/linked_list.py         - Test linked list
+                                                      Implementation
+                    .../test/large_data.py          - Test server with large
+                                                      data
 
 
 [RUN-3] How to Run
