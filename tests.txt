@@ -39,3 +39,6 @@ linked_list.py:
 
 Test Case 4: Memory Leak
 
+Use valgrind to check if there's memory leak
+-------------------------------------------------------------------------------
+valgrind --tool=memcheck --leak-check=yes ./lisod <port>

@@ -47,8 +47,7 @@
 
     cd src
     make
-    ./lisod <HTTP port> <HTTPS port> <log file> <lock file> <www folder>
-            <CGI script path> <private key file> <certificate file>
+    ./lisod <HTTP port>
 
 [IMP-4] Description of Implementation
 --------------------------------------------------------------------------------

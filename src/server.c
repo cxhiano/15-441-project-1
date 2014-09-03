@@ -65,6 +65,7 @@ static void deinit_client(client_list_t *client) {
 	close(client->fd);
 	fprintf(stderr, "Closed fd %d\n", client->fd);
 	io_deinit(client->buf);
+	free(client->buf);
 	free(client);
 }
 
