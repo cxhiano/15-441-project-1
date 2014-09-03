@@ -9,6 +9,3 @@ eventually runs memory out.
 
 And the server expands and shrinks buffers, which might harm the overall
 performance.
-
-timeout?
-restart?
