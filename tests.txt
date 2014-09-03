@@ -24,7 +24,7 @@ large_data.py:
    And with 50% probability, receive a random amount of data from the server.
    The purpose of this is to make the connection abnormal.
 3. Established a new connection to the server.
-4. Send and receive data to
+4. Send and receive data to verify the correctness of echo server.
 *******************************************************************************
 
 Test Case 3: Test Linked list
