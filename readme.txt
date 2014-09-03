@@ -49,21 +49,32 @@
 [IMP-4] Description of Implementation
 --------------------------------------------------------------------------------
 SIGPIPE is set to be ignored before server starts accepting requests.
-All socket will be put into a file descriptor list handled by select().
 
-The server repeatedly call select(). Each time select() returns, the server will
-find active file descriptors.
+All client sockets are maintained using linked list and each client socket is
+associated with a buffer to stored received data. Also, all client sockets
+will be made non-blocking using fcntl.
 
-If a new reqeust arrives, the file descriptor list will be updated so that
-select can handle the newly created socket. The newly created socket will be set
-to be non-blocking using fcntl.
+select() is used to implement a concurrent server. The server repeatedly call
+select(). Each time select() returns, the server will check server socket as
+well as go through the linked list to find out active sockets.
 
 When data arrives at client socket, recv() will be called repeatedly until it
 returns 0 or - 1 in order to receive as much data as possible. Since client
 sockets are set to be non-blocking, it will return -1 with a errno set to
 EWOULDBLOCK or EAGAIN when there is no data availeble.
 
-A specific size of memory will be allocated for buffer used to store received
-data at the beginning. And as the data in buffer grows, its capacity will be
-increased accordingly(by calling realloc). More specifically, each time data
-size exceeds half of buffer capacity, buffer capacity will be doubled.
+Data sending is handle similarly. send() will be called repeatedly until all
+data is sent or it returns -1 with errno set to EWOULDBLOCK or EAGAIN.
+
+When error is encountered during send() and recv(), corresponding client socket
+will be closed.
+
+The memory buffer associated with client socket is dynamically allocated. It
+start at a specific size and as data in it grows, it grows accordingly. (by
+calling realloc). More specifically, each time data size exceeds half of buffer
+capacity, buffer capacity will be increased to
+1.5 times its original capacity.
+
+The memory buffers will also shrink. Each time after sending data, if free
+space in the buffer is more than the initial size of the buffer, the buffer will
+be decreased to half of its original size.

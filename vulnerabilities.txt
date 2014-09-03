@@ -1,0 +1,14 @@
+1. Exception handling
+In most cases, when a system call failed, the server reports the error and
+continue running without any action. There might be some cases where simply
+ignoring the errors is not appropriate.
+
+2. Memory
+If client sends very large data, the automatically increased buffer will
+eventually runs memory out.
+
+And the server expands and shrinks buffers, which might harm the overall
+performance.
+
+timeout?
+restart?
