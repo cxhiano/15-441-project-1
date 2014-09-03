@@ -142,7 +142,7 @@ void serve(unsigned short port) {
 
 			if (FD_ISSET(client->fd, &read_fds)) //New data arrived!
 				nbytes = io_recv(client->fd, client->buf);
-			else if (FD_ISSET(client->fd, &write_fds) &&
+			if (nybtes > 0 && FD_ISSET(client->fd, &write_fds) &&
 					 client->buf->writehead < client->buf->datasize) //Time to send more data
 				nbytes = io_send(client->fd, client->buf);
 
