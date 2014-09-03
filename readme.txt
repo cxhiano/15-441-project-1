@@ -63,7 +63,7 @@ well as go through the linked list to find out active sockets.
 
 When data arrives at client socket, recv() will be called repeatedly until it
 returns 0 or - 1 in order to receive as much data as possible. Since client
-sockets are set to be non-blocking, it will return -1 with a errno set to
+sockets are set to be non-blocking, it will return -1 with errno set to
 EWOULDBLOCK or EAGAIN when there is no data availeble.
 
 Data sending is handle similarly. send() will be called repeatedly until all
@@ -73,11 +73,10 @@ When error is encountered during send() and recv(), corresponding client socket
 will be closed.
 
 The memory buffer associated with client socket is dynamically allocated. It
-start at a specific size and as data in it grows, it grows accordingly. (by
+starts at a specific size and as data in it grows, it grows accordingly. (by
 calling realloc). More specifically, each time data size exceeds half of buffer
-capacity, buffer capacity will be increased to
-1.5 times its original capacity.
+capacity, buffer capacity will be increased to 1.5 times its original capacity.
 
 The memory buffers will also shrink. Each time after sending data, if free
-space in the buffer is more than the initial size of the buffer, the buffer will
-be decreased to half of its original size.
+space in the buffer is more than the initial size of the buffer, half of free
+space in the buffer will be freed.

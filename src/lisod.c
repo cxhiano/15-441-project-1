@@ -29,6 +29,15 @@ int main(int argc, char* argv[])
 	}
 
 	http_port = atoi(argv[1]);
+	/* Don't neen them now
+	https_port = atoi(argv[2]);
+	log_file = argv[3];
+	lock_file = argv[4];
+	www_folder = argv[5];
+	cgi_path = argv[6];
+	private_key_file = argv[7];
+	certificate_file = argv[8];
+	*/
 
 	serve(http_port);
 

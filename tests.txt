@@ -22,7 +22,7 @@ large_data.py:
 1. Send specific size of data to the server.
 2. With 50% probabiltiy, close the connection immdiately after sending data.
    And with 50% probability, receive a random amount of data from the server.
-   The purpose is this is to make the connection abnormal.
+   The purpose of this is to make the connection abnormal.
 3. Established a new connection to the server.
 4. Send and receive data to
 *******************************************************************************
