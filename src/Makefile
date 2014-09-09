@@ -2,16 +2,19 @@ CC=gcc
 CFLAGS=-Wall -Werror -g
 LDFLAGS=
 
-all: lisod.o server.o io.o
+all: lisod.o server.o io.o log.o
 
-lisod.o: lisod.c config.h server.h
-	$(CC) $(CFLAGS) -c lisod.c config.h server.h
+lisod.o: lisod.c config.h server.h log.h
+	$(CC) $(CFLAGS) -c $^
 
-server.o: server.c server.h io.h
-	$(CC) $(CFLAGS) -c server.c server.h io.h
+server.o: server.c server.h io.h log.h
+	$(CC) $(CFLAGS) -c $^
 
-io.o: io.c io.h
-	$(CC) $(CFLAGS) -c io.h io.c
+io.o: io.c io.h log.h
+	$(CC) $(CFLAGS) -c $^
+
+log.o: log.c log.h
+	$(CC) $(CFLAGS) -c $^
 
 clean:
 	rm -rf *.o *.gch

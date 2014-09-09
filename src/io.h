@@ -1,11 +1,17 @@
-/*
- * io.h - Header file for io.c
+/** @file io.h
+ *  @brief Header file for io.c
+ *
+ *  @author Chao Xin(cxin)
  */
 #ifndef __MYIO_H__
 #define __MYIO_H__
 
-#define INIT_BUFFERSIZE 1024    //Initial buffer size
+/*
+ * Initial buffer size
+ */
+#define INIT_BUFFERSIZE 1024
 
+/** @brief A dynamic size buffer */
 typedef struct {
     void* buf;          //Memory allocated to this buffer
     int bufsize;        //Size of allocated memory

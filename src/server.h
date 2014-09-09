@@ -1,5 +1,7 @@
-/*
- * server.h - Header file for server.c
+/** @file server.h
+ *  @brief Header file for server.c
+ *
+ *  @author Chao Xin(cxin)
  */
 #ifndef __SERVER_H__
 #define __SERVER_H__

@@ -1,13 +1,15 @@
-/*
- * lisod.c - A web server call Liso
+/** @brief A web server call Liso
+ *
+ *  @author Chao Xin(cxin)
  */
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include "config.h"
 #include "server.h"
+#include "log.h"
 
-void usage() {
+static void usage() {
 	fprintf(stderr, "Usage: ./lisod <HTTP port> <HTTPS port> <log file> <lock file> <www folder>");
 	fprintf(stderr, "<CGI script path> <private key file> <certificate file>\n");
 	fprintf(stderr, "	HTTP port – the port for the HTTP (or echo) server to listen on\n");
@@ -21,23 +23,30 @@ void usage() {
 	fprintf(stderr, "	certificate file – certificate file path\n");
 }
 
+static void config_log() {
+	log_mask = L_ERROR | L_DEBUG | L_INFO;
+	set_log_file(log_file_name);
+}
+
 int main(int argc, char* argv[])
 {
-	if (argc < 2) {
+	if (argc < 4) {
 		usage();
 		return -1;
 	}
 
 	http_port = atoi(argv[1]);
-	/* Don't neen them now
 	https_port = atoi(argv[2]);
-	log_file = argv[3];
+	log_file_name = argv[3];
+	/*
 	lock_file = argv[4];
 	www_folder = argv[5];
 	cgi_path = argv[6];
 	private_key_file = argv[7];
 	certificate_file = argv[8];
 	*/
+
+	config_log();
 
 	serve(http_port);
 

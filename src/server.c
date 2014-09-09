@@ -1,8 +1,9 @@
-/*
- * server.c - Implementation of a concurrent echo server
+/** @file server.c
+ *  @brief Implementation of a concurrent echo server
+ *
+ *  @author Chao Xin(cxin)
  */
 #include <stdlib.h>
-#include <stdio.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -12,21 +13,22 @@
 #include <signal.h>
 #include "server.h"
 #include "io.h"
+#include "log.h"
 
-//Create and config a socket on given port.
+/** @brief Create and config a socket on given port. */
 static int setup_server_socket(unsigned short port) {
 	static int yes = 1; //For setsockopt
 	int server_fd;
 	static struct sockaddr_in server_addr;
 
 	if ((server_fd = socket(PF_INET, SOCK_STREAM, 0)) == -1) {
-		perror("Failed creating socket.");
+		log_error("Failed creating socket.");
 		return -1;
 	}
 
 	//Enable duplicate address and port binding
 	if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) < 0) {
-		perror("setsockopt failed.");
+		log_error("setsockopt failed.");
 		return -1;
 	}
 
@@ -37,13 +39,13 @@ static int setup_server_socket(unsigned short port) {
 
 	if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr))) {
 		close(server_fd);
-		perror("Failed binding socket.");
+		log_error("Failed binding socket.");
 		return -1;
 	}
 
 	if (listen(server_fd, DEFAULT_BACKLOG)) {
 		close(server_fd);
-		perror("Failed listening on socket.");
+		log_error("Failed listening on socket.");
 		return -1;
 	}
 
@@ -63,18 +65,21 @@ static client_list_t* new_client(int fd) {
 
 static void deinit_client(client_list_t *client) {
 	close(client->fd);
-	fprintf(stderr, "Closed fd %d\n", client->fd);
+	log_msg(L_INFO, "Closed fd %d\n", client->fd);
 	io_deinit(client->buf);
 	free(client->buf);
 	free(client);
 }
 
-/*
- * serve - Create a concurrent server on given port
+/** @brief Create a concurrent server to serve on given port
  *
- * Use select() to handle multiple socket. Each time a new connection established,
- * the newly created socket will be made non-blocking so that the server can read
- * as much data as possible each time by polling the socket.
+ *  Use select() to handle multiple socket. Each time a new connection
+ *  established, the newly created socket will be made non-blocking so that the
+ *  server can read as much data as possible each time by polling the socket.
+ *
+ *  @param port Serve on this port
+ *
+ *  @return Should never return
  */
 void serve(unsigned short port) {
 	int server_fd, client_fd;
@@ -108,7 +113,7 @@ void serve(unsigned short port) {
 		FD_SET(server_fd, &read_fds);
 
 		if (select(fd_max + 1, &read_fds, &write_fds, NULL, NULL) == -1) {
-			perror("select error");
+			log_error("select error");
 			continue;
 		}
 
@@ -116,7 +121,7 @@ void serve(unsigned short port) {
 		if (FD_ISSET(server_fd, &read_fds)) {
 			if ((client_fd = accept(server_fd, (struct sockaddr *)&client_addr,
 									(socklen_t *)&client_addr_len)) == -1) {
-				perror("Error accepting connection.");
+				log_error("Error accepting connection.");
 			}
 			//Add socket to fd list
 			FD_SET(client_fd, &master);

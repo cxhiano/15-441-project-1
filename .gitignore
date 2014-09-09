@@ -1,3 +1,5 @@
 lisod
 *.o
 *.gch
+.DS_Store
+log

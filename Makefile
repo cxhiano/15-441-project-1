@@ -4,7 +4,7 @@ LDFLAGS=
 
 all: lisod
 
-lisod: src/io.o src/server.o src/lisod.o
+lisod: src/io.o src/server.o src/lisod.o src/log.o
 	$(CC) $^ -o lisod
 
 clean:
