@@ -14,6 +14,7 @@
 #include "server.h"
 #include "io.h"
 #include "log.h"
+#include "http_client.h"
 
 /** @brief Create and config a socket on given port. */
 static int setup_server_socket(unsigned short port) {
@@ -50,25 +51,6 @@ static int setup_server_socket(unsigned short port) {
 	}
 
 	return server_fd;
-}
-
-static client_list_t* new_client(int fd) {
-	client_list_t *client = malloc(sizeof(client_list_t));
-
-	client->fd = fd;
-	client->buf = malloc(sizeof(buf_t));
-	io_init(client->buf);
-	client->next = NULL;
-
-	return client;
-}
-
-static void deinit_client(client_list_t *client) {
-	close(client->fd);
-	log_msg(L_INFO, "Closed fd %d\n", client->fd);
-	io_deinit(client->buf);
-	free(client->buf);
-	free(client);
 }
 
 /** @brief Create a concurrent server to serve on given port
@@ -145,11 +127,14 @@ void serve(unsigned short port) {
 			//Prevent deleting a client If no action performed on it
 			nbytes = 1;
 
-			if (FD_ISSET(client->fd, &read_fds)) //New data arrived!
-				nbytes = io_recv(client->fd, client->buf);
+			if (FD_ISSET(client->fd, &read_fds)) {//New data arrived!
+				nbytes = io_recv(client->fd, client->in);
+				write_client(client, client->in->buf + client->in->pos, client->in->datasize - client->in->pos);
+				client->in->pos = client->in->datasize;
+			}
 			if (nbytes > 0 && FD_ISSET(client->fd, &write_fds) &&
-					 client->buf->writehead < client->buf->datasize) //Time to send more data
-				nbytes = io_send(client->fd, client->buf);
+					 client->out->pos < client->out->datasize) //Time to send more data
+				nbytes = io_send(client->fd, client->out);
 
 			if (nbytes <= 0) { //Delete client
 				FD_CLR(client->fd, &master); //Remove from fd set

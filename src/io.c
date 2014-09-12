@@ -16,44 +16,44 @@
 #include "log.h"
 
 /** @brief The buffer is full and need to be expand? */
-static inline int full(buf_t *bp) {
+inline int full(buf_t *bp) {
     return bp->datasize + INIT_BUFFERSIZE > bp->bufsize;
 }
 
 /** @brief The buffer is empty and should be shrink? */
-static inline int empty(buf_t *bp) {
-    int freespace = bp->bufsize - bp->datasize + bp->writehead;
+inline int empty(buf_t *bp) {
+    int freespace = bp->bufsize - bp->datasize + bp->pos;
     return freespace > INIT_BUFFERSIZE;
 }
 
 /** @brief Shrink buffer size
  *
- *  Move data which has not yet been sent to the head of buffer and then deduce
+ *  Move data started at pointer bp->pos to the head of buffer and then deduce
  *  the free memory by half.
  *
  *  @param bp The buffer to be shrunk
  *
  *  @return Void
  */
-static void io_shrink(buf_t *bp) {
+void io_shrink(buf_t *bp) {
     int freespace;
 
-    log_msg(L_DEBUG, "Start shrinking buffer. bufsize: %d datasize: %d writehead: %d\n",
-            bp->bufsize, bp->datasize, bp->writehead);
+    log_msg(L_DEBUG, "Start shrinking buffer. bufsize: %d datasize: %d pos: %d\n",
+            bp->bufsize, bp->datasize, bp->pos);
 
     //calculate free memory
-    freespace = bp->bufsize - bp->datasize + bp->writehead;
+    freespace = bp->bufsize - bp->datasize + bp->pos;
     //move data to the head of buffer
-    bp->datasize -= bp->writehead;
-    memmove(bp->buf, bp->buf + bp->writehead, bp->datasize);
-    bp->writehead = 0;
+    bp->datasize -= bp->pos;
+    memmove(bp->buf, bp->buf + bp->pos, bp->datasize);
+    bp->pos = 0;
     //cut of half of the free space
     bp->bufsize -= freespace >> 1;
 
     bp->buf = realloc(bp->buf, bp->bufsize);
 
-    log_msg(L_DEBUG, "Shrinking completed. bufsize: %d datasize: %d writehead: %d\n",
-            bp->bufsize, bp->datasize, bp->writehead);
+    log_msg(L_DEBUG, "Shrinking completed. bufsize: %d datasize: %d pos: %d\n",
+            bp->bufsize, bp->datasize, bp->pos);
 }
 
 /** @brief Try to recv as much data as possible
@@ -113,10 +113,10 @@ int io_send(int sock, buf_t *bp) {
     int bytes_sent = 0, nbytes;
 
     log_msg(L_DEBUG, "Send start! %d bytes data to be sent to socket %d.\n",
-            bp->datasize - bp->writehead, sock);
+            bp->datasize - bp->pos, sock);
 
-    while (bp->writehead < bp->datasize) {
-        nbytes = send(sock, bp->buf + bp->writehead, bp->datasize - bp->writehead, 0);
+    while (bp->pos < bp->datasize) {
+        nbytes = send(sock, bp->buf + bp->pos, bp->datasize - bp->pos, 0);
 
         if (nbytes < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK)
@@ -128,7 +128,7 @@ int io_send(int sock, buf_t *bp) {
         }
 
         log_msg(L_DEBUG, "----%d bytes data sent.\n", nbytes);
-        bp->writehead += nbytes;
+        bp->pos += nbytes;
         bytes_sent += nbytes;
     }
     log_msg(L_DEBUG, "Send complete. %d bytes of data sent to socket %d\n", bytes_sent, sock);
@@ -148,7 +148,7 @@ int io_send(int sock, buf_t *bp) {
 void io_init(buf_t *bp) {
     bp->bufsize = INIT_BUFFERSIZE;
     bp->datasize = 0;
-    bp->writehead = 0;
+    bp->pos = 0;
     bp->buf = malloc(bp->bufsize);
 }
 
