@@ -13,10 +13,10 @@
 
 /** @brief A dynamic size buffer */
 typedef struct {
-    void* buf;          //Memory allocated to this buffer
-    int bufsize;        //Size of allocated memory
-    int datasize;       //Size of data store in memory
-    int writehead;      //The first character to be written out
+    void* buf;          //!<Memory allocated to this buffer
+    int bufsize;        //!<Size of allocated memory
+    int datasize;       //!<Size of data store in memory
+    int writehead;      //!<The first character to be written out
 } buf_t;
 
 void io_init(buf_t *bp);

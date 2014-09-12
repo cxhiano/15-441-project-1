@@ -1,4 +1,4 @@
-/** @fine config.h
+/** @file config.h
  *  @brief Define global variable for configuration
  *  @author Chao Xin(cxin)
  */

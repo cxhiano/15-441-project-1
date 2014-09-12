@@ -3,3 +3,4 @@ lisod
 *.gch
 .DS_Store
 log
+Doxyfile
