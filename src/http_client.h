@@ -8,7 +8,11 @@
 
 #include "io.h"
 
-/** @brief */
+ /** @brief Store information of a single client.
+ *
+ * Clients are organized using linked list.
+ */
+
 typedef struct client_list {
     int fd;         //<!client's file descriptor
     buf_t *in, *out;     //<!input and output buffer assigned to this client

@@ -15,6 +15,7 @@
 #include "io.h"
 #include "log.h"
 #include "http_client.h"
+#include "http_parser.h"
 
 /** @brief Create and config a socket on given port. */
 static int setup_server_socket(unsigned short port) {
@@ -129,8 +130,8 @@ void serve(unsigned short port) {
 
 			if (FD_ISSET(client->fd, &read_fds)) {//New data arrived!
 				nbytes = io_recv(client->fd, client->in);
-				write_client(client, client->in->buf + client->in->pos, client->in->datasize - client->in->pos);
-				client->in->pos = client->in->datasize;
+				http_parse(client);
+				if (empty(client->in)) io_shrink(client->in);
 			}
 			if (nbytes > 0 && FD_ISSET(client->fd, &write_fds) &&
 					 client->out->pos < client->out->datasize) //Time to send more data
