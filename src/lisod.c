@@ -9,6 +9,8 @@
 #include "server.h"
 #include "log.h"
 
+char* http_version = "http/1.1";
+
 static void usage() {
 	fprintf(stderr, "Usage: ./lisod <HTTP port> <HTTPS port> <log file> <lock file> <www folder>");
 	fprintf(stderr, "<CGI script path> <private key file> <certificate file>\n");
@@ -24,7 +26,7 @@ static void usage() {
 }
 
 static void config_log() {
-	log_mask = L_ERROR | L_DEBUG | L_INFO;
+	log_mask = L_ERROR | L_HTTP_DEBUG | L_INFO;
 	//set_log_file(log_file_name);
 }
 

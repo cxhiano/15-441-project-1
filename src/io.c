@@ -17,7 +17,7 @@
 
 /** @brief The buffer is full and need to be expand? */
 inline int full(buf_t *bp) {
-    return bp->datasize + INIT_BUFFERSIZE > bp->bufsize;
+    return bp->datasize + (INIT_BUFFERSIZE >> 1) > bp->bufsize;
 }
 
 /** @brief The buffer is empty and should be shrink? */
@@ -38,7 +38,7 @@ inline int empty(buf_t *bp) {
 void io_shrink(buf_t *bp) {
     int freespace;
 
-    log_msg(L_DEBUG, "Start shrinking buffer. bufsize: %d datasize: %d pos: %d\n",
+    log_msg(L_IO_DEBUG, "Start shrinking buffer. bufsize: %d datasize: %d pos: %d\n",
             bp->bufsize, bp->datasize, bp->pos);
 
     //calculate free memory
@@ -52,7 +52,7 @@ void io_shrink(buf_t *bp) {
 
     bp->buf = realloc(bp->buf, bp->bufsize);
 
-    log_msg(L_DEBUG, "Shrinking completed. bufsize: %d datasize: %d pos: %d\n",
+    log_msg(L_IO_DEBUG, "Shrinking completed. bufsize: %d datasize: %d pos: %d\n",
             bp->bufsize, bp->datasize, bp->pos);
 }
 
@@ -70,9 +70,9 @@ void io_shrink(buf_t *bp) {
 int io_recv(int sock, buf_t *bp) {
     int nbytes;
 
-    log_msg(L_DEBUG, "recv from %d start.\n", sock);
+    log_msg(L_IO_DEBUG, "recv from %d start.\n", sock);
     while ((nbytes = recv(sock, bp->buf + bp->datasize, bp->bufsize - bp->datasize - 1, 0)) > 0) {
-        log_msg(L_DEBUG, "----%d bytes data received.\n", nbytes);
+        log_msg(L_IO_DEBUG, "----%d bytes data received.\n", nbytes);
         bp->datasize += nbytes;
 
         //More data! Allocate more memory
@@ -83,7 +83,7 @@ int io_recv(int sock, buf_t *bp) {
     }
 
     if (nbytes == 0) {
-        log_msg(L_DEBUG, "Connection ends.\n");
+        log_msg(L_IO_DEBUG, "Connection ends.\n");
         return 0;
     }
 
@@ -92,7 +92,7 @@ int io_recv(int sock, buf_t *bp) {
         return nbytes;
     }
 
-    log_msg(L_DEBUG, "recv complete. %d bytes of data received from socket %d.\n", bp->datasize, sock);
+    log_msg(L_IO_DEBUG, "recv complete. %d bytes of data received from socket %d.\n", bp->datasize, sock);
 
     return bp->datasize;
 }
@@ -112,7 +112,7 @@ int io_recv(int sock, buf_t *bp) {
 int io_send(int sock, buf_t *bp) {
     int bytes_sent = 0, nbytes;
 
-    log_msg(L_DEBUG, "Send start! %d bytes data to be sent to socket %d.\n",
+    log_msg(L_IO_DEBUG, "Send start! %d bytes data to be sent to socket %d.\n",
             bp->datasize - bp->pos, sock);
 
     while (bp->pos < bp->datasize) {
@@ -127,11 +127,11 @@ int io_send(int sock, buf_t *bp) {
             }
         }
 
-        log_msg(L_DEBUG, "----%d bytes data sent.\n", nbytes);
+        log_msg(L_IO_DEBUG, "----%d bytes data sent.\n", nbytes);
         bp->pos += nbytes;
         bytes_sent += nbytes;
     }
-    log_msg(L_DEBUG, "Send complete. %d bytes of data sent to socket %d\n", bytes_sent, sock);
+    log_msg(L_IO_DEBUG, "Send complete. %d bytes of data sent to socket %d\n", bytes_sent, sock);
 
     //Shrink buffer when there is too much free space in the buffer
     if (empty(bp))
@@ -142,14 +142,17 @@ int io_send(int sock, buf_t *bp) {
 
 /** @brief Init a buf_t struct
  *
- *  @param bp An allcated buf_t
- *  @return Void
+ *  @return A pointer to the newly created buf_t struct
  */
-void io_init(buf_t *bp) {
+buf_t* io_init() {
+    buf_t *bp = malloc(sizeof(buf_t));
+
     bp->bufsize = INIT_BUFFERSIZE;
     bp->datasize = 0;
     bp->pos = 0;
     bp->buf = malloc(bp->bufsize);
+
+    return bp;
 }
 
 /** @brief Destroy a buf_t struct, free allocated memory

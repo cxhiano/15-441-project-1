@@ -13,7 +13,7 @@
 
 /** @brief A dynamic size buffer */
 typedef struct {
-    void* buf;          //!<Memory allocated to this buffer
+    char* buf;          //!<Memory allocated to this buffer
     int bufsize;        //!<Size of allocated memory
     int datasize;       //!<Size of data store in memory
     /**
@@ -23,7 +23,7 @@ typedef struct {
     int pos;
 } buf_t;
 
-void io_init(buf_t *bp);
+buf_t* io_init();
 void io_deinit(buf_t *bp);
 
 int full(buf_t *bp);

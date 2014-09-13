@@ -74,7 +74,7 @@ void serve(unsigned short port) {
 
 	int fd_max;		//Keep track of max fd passed into select()
 
-	client_list_t *client,
+	http_client_t *client,
 				  *prev; //previous item in linked list when iterating
 	int nbytes;
 

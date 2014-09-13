@@ -5,6 +5,8 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
+char* http_version;
+
 unsigned short http_port;
 unsigned short https_port;
 char* log_file_name,

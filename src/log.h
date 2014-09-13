@@ -9,8 +9,10 @@
 #include <stdio.h>
 
 #define L_ERROR 0x1 //This flag indicates an error message
-#define L_DEBUG 0x2  //This flag indicates a debug message
-#define L_INFO 0x4  //This flag indicates an info message
+#define L_INFO 0x2 //This flag indicates an info message
+/* User define debug flag */
+#define L_IO_DEBUG 0x4
+#define L_HTTP_DEBUG 0x8
 
 /*
  * @brief log_file indicates where to write log. When it's NULL, log will be written
