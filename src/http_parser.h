@@ -8,6 +8,8 @@
 
 #include "http_client.h"
 
-void http_parse(client_list_t *client);
+#define MAXLINE 8096
+
+int http_parse(client_list_t *client);
 
 #endif
