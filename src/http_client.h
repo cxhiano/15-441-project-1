@@ -65,5 +65,10 @@ void client_write_string(http_client_t *client, char* str);
 int client_readline(http_client_t *client, char *line);
 void send_response_line(http_client_t *client, int code);
 void send_header(http_client_t *client, char* key, char* val);
+int end_request(http_client_t *client, int code);
+
+/* helper functions */
+int strcicmp(char* s1, char* s2);
+char* get_request_header(http_request_t *req, char *key);
 
 #endif

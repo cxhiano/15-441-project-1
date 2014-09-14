@@ -5,6 +5,26 @@
 #include "log.h"
 #include "http_client.h"
 
+/** brief Compare two string(case insensitive) */
+int strcicmp(char* s1, char* s2) {
+    int len = strlen(s1),
+        i;
+    char c1, c2;
+
+    if (len != strlen(s2)) return 1;
+
+    for (i = 0; i < len; ++i) {
+        c1 = s1[i]; c2 = s2[i];
+        if (c1 >= 'A' && c1 <= 'Z')
+            c1 = c1 - 'A' + 'a';
+        if (c2 >= 'A' && c2 <= 'Z')
+            c2 = c2 - 'A' + 'a';
+        if (c1 != c2) return 1;
+    }
+
+    return 0;
+}
+
 /** @brief Destroy a http_header struct */
 void deinit_header(http_header_t *header) {
     if (header->key != NULL)
@@ -173,7 +193,60 @@ void send_response_line(http_client_t *client, int code) {
 /** @brief Send the response header */
 void send_header(http_client_t *client, char* key, char* val) {
     client_write_string(client, key);
+    client_write_string(client, ": ");
     client_write_string(client, val);
     client_write_string(client, "\r\n");
 }
 
+//
+static int is_fatal(int code) {
+    return code == BAD_REQUEST || code == INTERNAL_SERVER_ERROR;
+}
+
+/** @brief Ends current request with given status code
+ *
+ *  @return 0 if the connection should be kept alive. -1 if the connection
+ *          should be closed.
+ */
+int end_request(http_client_t *client, int code) {
+    char *connection;
+    int ret;
+
+    send_response_line(client, code);
+
+    /* The client signal a "Connection: Close" */
+    connection = get_request_header(client->req, "Connection");
+    if (connection != NULL && strcicmp(connection, "Close") == 0)
+        ret = -1;
+    else
+        ret=  0;
+
+    deinit_request(client->req);
+    client->req = NULL;
+
+    if (is_fatal(code)) {
+        send_header(client, "Connection", "Close");
+        client_write_string(client, "\r\n");
+        return -1;
+    }
+    client_write_string(client, "\r\n");
+
+    return ret;
+}
+
+/** @brief Retrieve the value of a request header by key
+ *
+ *  @return The value corresponds to the given key. NULL if not found
+ */
+char* get_request_header(http_request_t *req, char *key) {
+    http_header_t *ptr;
+
+    ptr = req->headers;
+    while (ptr) {
+        if (strcicmp(ptr->key, key) == 0)
+            return ptr->val;
+        ptr = ptr->next;
+    }
+
+    return NULL;
+}

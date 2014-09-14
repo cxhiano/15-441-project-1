@@ -15,26 +15,6 @@
 #include "request_handler.h"
 #include "http_client.h"
 
-/** brief Compare two string(case insensitive) */
-int strcicmp(char* s1, char* s2) {
-    int len = strlen(s1),
-        i;
-    char c1, c2;
-
-    if (len != strlen(s2)) return 1;
-
-    for (i = 0; i < len; ++i) {
-        c1 = s1[i]; c2 = s2[i];
-        if (c1 >= 'A' && c1 <= 'Z')
-            c1 = c1 - 'A' + 'a';
-        if (c2 >= 'A' && c2 <= 'Z')
-            c2 = c2 - 'A' + 'a';
-        if (c1 != c2) return 1;
-    }
-
-    return 0;
-}
-
 static char* get_mimetype(char* path) {
     char* ext = path + strlen(path) - 1;
 
@@ -151,8 +131,6 @@ static int internal_handler(http_client_t *client, int flag) {
     int n, size, fd;
     time_t current_time;
 
-    log_msg(L_INFO, "Handler get request. URI: %s\n", client->req->uri);
-
     if ((fd = open_file(client->req->uri, &size, mimetype, last_modifiled)) < 0)
         return -fd;
 
@@ -162,11 +140,11 @@ static int internal_handler(http_client_t *client, int flag) {
     sprintf(buf, "%d", size);
 
     send_response_line(client, OK);
-    send_header(client, "Content-Type: ", mimetype);
-    send_header(client, "Content-Length: ", buf);
-    send_header(client, "Date: ", date);
-    send_header(client, "Last-Modified: ", last_modifiled);
-    send_header(client, "Server: ", "Liso/1.0");
+    send_header(client, "Content-Type", mimetype);
+    send_header(client, "Content-Length", buf);
+    send_header(client, "Date", date);
+    send_header(client, "Last-Modified", last_modifiled);
+    send_header(client, "Server", "Liso/1.0");
     client_write_string(client, "\r\n");
 
     if (flag == F_GET) {
@@ -184,6 +162,7 @@ static int internal_handler(http_client_t *client, int flag) {
  *  @return 0 if OK. Response status code if error.
  */
 int handle_get(http_client_t *client) {
+    log_msg(L_INFO, "Handler GET request. URI: %s\n", client->req->uri);
     return internal_handler(client, F_GET);
 }
 
@@ -193,6 +172,7 @@ int handle_get(http_client_t *client) {
  *  @return 0 if OK. Response status code if error.
  */
 int handle_head(http_client_t *client) {
+    log_msg(L_INFO, "Handle HEAD request. URI: %s\n", client->req->uri);
     return internal_handler(client, F_HEAD);
 }
 

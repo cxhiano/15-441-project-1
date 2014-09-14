@@ -125,13 +125,22 @@ void serve(unsigned short port) {
 
 		prev = NULL;
 		for (client = client_head; client != NULL; ) {
-			//Prevent deleting a client If no action performed on it
+			/*
+			 * Normally, nbytes will be the number of bytes received or sent.
+			 * When error occurs, nbytes will be set to -1. And when nbytes<=0,
+			 * the client will be deleted.
+			 */
 			nbytes = 1;
 
 			if (FD_ISSET(client->fd, &read_fds)) {//New data arrived!
 				nbytes = io_recv(client->fd, client->in);
-				http_parse(client);
-				if (empty(client->in)) io_shrink(client->in);
+				if (nbytes > 0) {
+					if (http_parse(client) == -1) {
+						io_send(client->fd, client->out);
+						nbytes = -1;	//Indicates that the client should be deleted
+					}
+					if (empty(client->in)) io_shrink(client->in);
+				}
 			}
 			if (nbytes > 0 && FD_ISSET(client->fd, &write_fds) &&
 					 client->out->pos < client->out->datasize) //Time to send more data
