@@ -4,7 +4,7 @@ LDFLAGS=
 
 all: lisod
 
-lisod: src/io.o src/server.o src/lisod.o src/log.o src/http_client.o src/http_parser.o
+lisod: src/io.o src/server.o src/lisod.o src/log.o src/http_client.o src/http_parser.o src/request_handler.o
 	$(CC) $^ -o lisod
 
 clean:

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "config.h"
 #include "http_parser.h"
+#include "request_handler.h"
 #include "log.h"
 
 static int parse_request_line(http_request_t* req, char *line) {

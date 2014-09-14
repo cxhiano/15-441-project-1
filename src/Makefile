@@ -16,10 +16,13 @@ io.o: io.c io.h log.h
 log.o: log.c log.h
 	$(CC) $(CFLAGS) -c $^
 
-http_parser.o: http_parser.c http_parser.h http_client.h log.h
+http_parser.o: http_parser.c http_parser.h http_client.h request_handler.h log.h
 	$(CC) $(CFLAGS) -c $^
 
 http_client.o: http_client.c http_client.h io.h log.h
+	$(CC) $(CFLAGS) -c $^
+
+request_handler.o: request_handler.c request_handler.h http_client.h log.h
 	$(CC) $(CFLAGS) -c $^
 
 clean:

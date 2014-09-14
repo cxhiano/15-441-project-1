@@ -61,14 +61,8 @@ http_client_t* new_client(int fd);
 
 /* IO with client */
 void client_write(http_client_t *client, char* buf, int buf_len);
+void client_write_string(http_client_t *client, char* str);
 int client_readline(http_client_t *client, char *line);
 void send_response_line(http_client_t *client, int code);
 
-/* Request handlers */
-int handle_get(http_client_t *client);
-int handle_post(http_client_t *client);
-int handle_head(http_client_t *client);
-
-/* helper functions */
-int strcicmp(char* s1, char* s2);
 #endif
