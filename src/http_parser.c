@@ -4,25 +4,6 @@
 #include "http_parser.h"
 #include "log.h"
 
-static int strcicmp(char* s1, char* s2) {
-    int len = strlen(s1),
-        i;
-    char c1, c2;
-
-    if (len != strlen(s2)) return 1;
-
-    for (i = 0; i < len; ++i) {
-        c1 = s1[i]; c2 = s2[i];
-        if (c1 >= 'A' && c1 <= 'Z')
-            c1 = c1 - 'A' + 'a';
-        if (c2 >= 'A' && c2 <= 'Z')
-            c2 = c2 - 'A' + 'a';
-        if (c1 != c2) return 1;
-    }
-
-    return 0;
-}
-
 static int parse_request_line(http_request_t* req, char *line) {
     char version[MAXBUF];
 
@@ -68,13 +49,11 @@ static int parse_header(http_request_t* req, char* line) {
     header->next = req->headers;
     req->headers = header;
 
-    printf("key: %s\nvalue: %s\n", header->key, header->val);
-
     return 0;
 }
 
-static void bad_request(http_client_t *client) {
-    send_response_line(client, BAD_REQUEST);
+static void end_request(http_client_t *client, int code) {
+    send_response_line(client, code);
     deinit_request(client->req);
     client->req = NULL;
 }
@@ -93,15 +72,13 @@ int http_parse(http_client_t *client) {
 
         /* The length of a line exceed MAXBUF */
         if (ret < 0) {
-            bad_request(client);
+            end_request(client, BAD_REQUEST);
             return BAD_REQUEST;
         }
 
         /* parse request line and store information in client->req */
         if ((ret = parse_request_line(client->req, line)) > 0) {
-            send_response_line(client, ret);
-            deinit_request(client->req);
-            client->req = NULL;
+            end_request(client, ret);
             return ret;
         }
     }
@@ -115,11 +92,18 @@ int http_parse(http_client_t *client) {
             if (strcicmp(client->req->method, "HEAD") == 0)
                 ret = handle_head(client);
 
+            if (ret != 0)
+                end_request(client, ret);
+            else {
+                deinit_request(client->req);
+                client->req = NULL;
+            }
+
             return ret;
         }
         ret = parse_header(client->req, line);
         if (ret == -1) {
-            bad_request(client);
+            end_request(client, BAD_REQUEST);
             return BAD_REQUEST;
         }
     }

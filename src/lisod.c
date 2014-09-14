@@ -38,7 +38,7 @@ int main(int argc, char* argv[])
 	}
 
 	http_port = atoi(argv[1]);
-	www_folder = "www";
+	www_folder = "static";
 	/*
 	https_port = atoi(argv[2]);
 	log_file_name = argv[3];
