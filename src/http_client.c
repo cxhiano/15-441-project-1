@@ -169,3 +169,11 @@ void send_response_line(http_client_t *client, int code) {
     client_write_string(client, line);
     client_write_string(client, "\r\n");
 }
+
+/** @brief Send the response header */
+void send_header(http_client_t *client, char* key, char* val) {
+    client_write_string(client, key);
+    client_write_string(client, val);
+    client_write_string(client, "\r\n");
+}
+

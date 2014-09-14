@@ -64,5 +64,6 @@ void client_write(http_client_t *client, char* buf, int buf_len);
 void client_write_string(http_client_t *client, char* str);
 int client_readline(http_client_t *client, char *line);
 void send_response_line(http_client_t *client, int code);
+void send_header(http_client_t *client, char* key, char* val);
 
 #endif

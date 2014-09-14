@@ -37,6 +37,7 @@ int strcicmp(char* s1, char* s2) {
 
 static char* get_mimetype(char* path) {
     char* ext = path + strlen(path) - 1;
+
     while (ext != path && ext[0] != '.' && ext[0] != '/')
         ext -= 1;
     if (ext[0] == '.') {
@@ -56,38 +57,38 @@ static char* get_mimetype(char* path) {
     return "application/octet-stream";
 }
 
-static void send_header(http_client_t *client, char* key, char* val) {
-    client_write_string(client, key);
-    client_write_string(client, val);
-    client_write_string(client, "\r\n");
-}
-
-/** @brief Handle HTTP GET request
+/** @brief Try to open file and retrieve its information
  *
- *  @param client A pointer to corresponding client object
- *  @return
+ *  The passed-in uri will be concatenated with www_folder to make the full
+ *  path. The size, type and last modified date will be retrieve.
+ *
+ *  @param uri URI from HTTP request
+ *  @param size The pointer to the variable which stores the file size
+ *  @param mimetype The pointer to a string buffer which will be used to store
+ *                  the mimetype
+ *  @param last_modified The pointer to a string buffer that stores the last
+ *                       modified date.
+ *  @return File descriptor of the openned file if success. Negate of the
+ *          corresponding http response code if error occurs.
  */
-int handle_get(http_client_t *client) {
+static int open_file(char *uri, int *size, char *mimetype, char *last_modifiled) {
     struct stat s;
-    char *path, *mimetype;
-    char buf[MAXBUF];
-    char last_modifiled[128], date[128];
-    int fd, n, size;
-    time_t current_time;
+    char *path;
+    int fd;
 
-    path = malloc(strlen(www_folder) + strlen(client->req->uri) + 20);
+    path = malloc(strlen(www_folder) + strlen(uri) + 20);
     if (realpath(www_folder, path) == NULL) {
         free(path);
         log_error("handle_get error: realpath error");
-        return INTERNAL_SERVER_ERROR;
+        return -INTERNAL_SERVER_ERROR;
     }
-    strcat(path, client->req->uri);
+    strcat(path, uri);
 
     /* Check if the file exists */
     if (stat(path, &s) == -1) {
         free(path);
         log_error("handle_get error: stat error");
-        return NOT_FOUND;
+        return -NOT_FOUND;
     }
     else {
         //is a directory?
@@ -100,7 +101,7 @@ int handle_get(http_client_t *client) {
             if (stat(path, &s) == -1) {
                 free(path);
                 log_error("handle_get error: stat error");
-                return NOT_FOUND;
+                return -NOT_FOUND;
             }
         }
     }
@@ -108,27 +109,53 @@ int handle_get(http_client_t *client) {
     if ((fd = open(path, O_RDONLY)) == -1) {
         free(path);
         log_error("handle_get error: open error");
-        return INTERNAL_SERVER_ERROR;
+        return -INTERNAL_SERVER_ERROR;
     }
 
     /* get the size of file by lseek */
-    if ((size = lseek(fd, 0, SEEK_END)) == -1) {
+    if ((*size = lseek(fd, 0, SEEK_END)) == -1) {
         free(path);
         close(fd);
         log_error("handle_get error: lseek error");
-        return INTERNAL_SERVER_ERROR;
+        return -INTERNAL_SERVER_ERROR;
     }
     /* restore offset */
     if (lseek(fd, 0, SEEK_SET) == -1) {
         free(path);
         close(fd);
         log_error("handle_get error: lseek error");
-        return INTERNAL_SERVER_ERROR;
+        return -INTERNAL_SERVER_ERROR;
     }
 
-    mimetype = get_mimetype(path);
-    free(path); // path is no longer useful
+    strcpy(mimetype, get_mimetype(path));
+    free(path);
+
     strftime(last_modifiled, 128, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&(s.st_mtime)));
+
+    return fd;
+}
+
+/** @brief Internal GET and HEAD handler which only return headers
+ *
+ *  This process will be called by both handle_get and handle_head. It only
+ *  send response line and response header to the client.
+ *
+ *  @param client A pointer to corresponding client object
+ *  @param flag Indicate the request type which will be used to decide whether
+ *         or not the message body should be return
+ *  @return 0 if OK. Response status code on error
+ */
+static int internal_handler(http_client_t *client, int flag) {
+    char buf[MAXBUF];
+    char last_modifiled[128], date[128], mimetype[128];
+    int n, size, fd;
+    time_t current_time;
+
+    log_msg(L_INFO, "Handler get request. URI: %s\n", client->req->uri);
+
+    if ((fd = open_file(client->req->uri, &size, mimetype, last_modifiled)) < 0)
+        return -fd;
+
     current_time = time(NULL);
     strftime(date, 128, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&current_time));
 
@@ -142,26 +169,39 @@ int handle_get(http_client_t *client) {
     send_header(client, "Server: ", "Liso/1.0");
     client_write_string(client, "\r\n");
 
-    while ((n = read(fd, buf, MAXBUF)) > 0)
-        client_write(client, buf, n);
+    if (flag == F_GET) {
+        while ((n = read(fd, buf, MAXBUF)) > 0)
+            client_write(client, buf, n);
+    }
+
+    close(fd);
 
     return 0;
 }
-
-/** @brief Handle HTTP POST request
+/** @brief Handle HTTP GET request
  *
  *  @param client A pointer to corresponding client object
- *  @return
+ *  @return 0 if OK. Response status code if error.
  */
-int handle_post(http_client_t *client) {
-    return -1;
+int handle_get(http_client_t *client) {
+    return internal_handler(client, F_GET);
 }
 
 /** @brief Handle HTTP HEAD request
  *
  *  @param client A pointer to corresponding client object
- *  @return
+ *  @return 0 if OK. Response status code if error.
  */
 int handle_head(http_client_t *client) {
+    return internal_handler(client, F_HEAD);
+}
+
+/** @brief Handle HTTP POST request
+ *
+ *  @param client A pointer to corresponding client object
+ *  @return 0 if OK. Response status code if error.
+ */
+int handle_post(http_client_t *client) {
     return -1;
 }
+
