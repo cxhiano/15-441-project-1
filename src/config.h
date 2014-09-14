@@ -9,11 +9,11 @@ char* http_version;
 
 unsigned short http_port;
 unsigned short https_port;
-char* log_file_name,
-      lock_file,
-      www_folder,
-      cgi_path,
-      private_key_file,
-      certificate_file;
+char *log_file_name,
+     *lock_file,
+     *www_folder,
+     *cgi_path,
+     *private_key_file,
+     *certificate_file;
 
 #endif

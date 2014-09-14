@@ -2,8 +2,8 @@
 #include <string.h>
 #include <unistd.h>
 #include "config.h"
-#include "http_client.h"
 #include "log.h"
+#include "http_client.h"
 
 /** @brief Destroy a http_header struct */
 void deinit_header(http_header_t *header) {
@@ -16,6 +16,8 @@ void deinit_header(http_header_t *header) {
 /** @brief Destroy a http_request struct */
 void deinit_request(http_request_t *req) {
     http_header_t *ptr, *tmp;
+
+    if (req == NULL) return;
 
     ptr = req->headers;
 
@@ -99,7 +101,7 @@ void client_write(http_client_t *client, char* buf, int buf_len) {
  *
  *  @param client A pointer to a client struct
  *  @param line The buffer which stores the line.
- *  @return Length of line. If no \n is found, return 0. If the length of line
+ *  @return 1 on success. If no \n is found, return 0. If the length of line
  *  exceed MAX_LINE_LEN, return -1.
  */
 int client_readline(http_client_t *client, char *line) {
@@ -108,7 +110,6 @@ int client_readline(http_client_t *client, char *line) {
         n;
 
     while (end < bp->datasize) {
-        end += 1;
         if (end - bp->pos >= MAXBUF)
             return -1;
         if (bp->buf[end] == '\n') {
@@ -122,14 +123,20 @@ int client_readline(http_client_t *client, char *line) {
 
             line[n] = '\0';     //End the string
 
-            bp->pos = end;
-            return end - bp->pos;
+            bp->pos = end + 1;
+            return 1;
         }
+        end += 1;
     }
 
     return 0;
 }
 
+/** @brief Send the response line to client with status code
+ *
+ *  @param client The corresponding client
+ *  @param code Status code
+ */
 void send_response_line(http_client_t *client, int code) {
     char* line;
 
@@ -156,4 +163,31 @@ void send_response_line(http_client_t *client, int code) {
 
     client_write(client, line, strlen(line));
     client_write(client, "\r\n", 2);
+}
+
+/** @brief Handle HTTP GET request
+ *
+ *  @param client A pointer to corresponding client object
+ *  @return
+ */
+int handle_get(http_client_t *client) {
+    return -1;
+}
+
+/** @brief Handle HTTP POST request
+ *
+ *  @param client A pointer to corresponding client object
+ *  @return
+ */
+int handle_post(http_client_t *client) {
+    return -1;
+}
+
+/** @brief Handle HTTP HEAD request
+ *
+ *  @param client A pointer to corresponding client object
+ *  @return
+ */
+int handle_head(http_client_t *client) {
+    return -1;
 }

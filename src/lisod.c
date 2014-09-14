@@ -32,15 +32,16 @@ static void config_log() {
 
 int main(int argc, char* argv[])
 {
-	if (argc < 4) {
+	if (argc < 2) {
 		usage();
 		return -1;
 	}
 
 	http_port = atoi(argv[1]);
+	www_folder = "www";
+	/*
 	https_port = atoi(argv[2]);
 	log_file_name = argv[3];
-	/*
 	lock_file = argv[4];
 	www_folder = argv[5];
 	cgi_path = argv[6];

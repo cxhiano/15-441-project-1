@@ -1,5 +1,5 @@
 /** @file http_client.h
- *  @brief Define client struct
+ *  @brief Define client struct and function to deal with requests from client.
  *
  *  @author Chao Xin(cxin)
  */
@@ -63,5 +63,10 @@ http_client_t* new_client(int fd);
 void client_write(http_client_t *client, char* buf, int buf_len);
 int client_readline(http_client_t *client, char *line);
 void send_response_line(http_client_t *client, int code);
+
+/* Request handlers */
+int handle_get(http_client_t *client);
+int handle_post(http_client_t *client);
+int handle_head(http_client_t *client);
 
 #endif
