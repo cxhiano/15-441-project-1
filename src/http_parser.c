@@ -107,12 +107,14 @@ static int parse_header(http_request_t* req, char* line) {
 int http_parse(http_client_t *client) {
     int ret;
     char line[MAXBUF];
-    char *connection;
 
     if (client->req == NULL) {  /* A new request, parse request line */
+        ret = client_readline(client, line);
+        if (strlen(line) == 0) return 0;
+
         client->req = new_request();
 
-        ret = client_readline(client, line);
+        log_msg(L_HTTP_DEBUG, "%s\n", line);
 
         if (ret == 0) return 0;
 
@@ -129,6 +131,7 @@ int http_parse(http_client_t *client) {
 
     /*  Read request headers */
     while (client_readline(client, line) > 0) {
+        log_msg(L_HTTP_DEBUG, "%s\n", line);
         if (strlen(line) == 0) {    //Request header ends
             if (strcicmp(client->req->method, "GET") == 0)
                 ret = handle_get(client);
@@ -141,11 +144,11 @@ int http_parse(http_client_t *client) {
                 return end_request(client, ret);
             else {
                 /* The client signal a "Connection: Close" */
-                connection = get_request_header(client->req, "Connection");
-                if (connection != NULL && strcicmp(connection, "close") == 0)
+                if (connection_close(client->req))
                     ret = -1;
                 else
                     ret = 0;
+
                 deinit_request(client->req);
                 client->req = NULL;
 

@@ -70,5 +70,6 @@ int end_request(http_client_t *client, int code);
 /* helper functions */
 int strcicmp(char* s1, char* s2);
 char* get_request_header(http_request_t *req, char *key);
+int connection_close(http_request_t *req);
 
 #endif

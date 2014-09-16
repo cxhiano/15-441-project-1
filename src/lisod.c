@@ -9,7 +9,7 @@
 #include "server.h"
 #include "log.h"
 
-char* http_version = "http/1.1";
+char* http_version = "HTTP/1.1";
 
 static void usage() {
 	fprintf(stderr, "Usage: ./lisod <HTTP port> <HTTPS port> <log file> <lock file> <www folder>");

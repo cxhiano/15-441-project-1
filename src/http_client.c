@@ -203,20 +203,19 @@ static int is_fatal(int code) {
     return code == BAD_REQUEST || code == INTERNAL_SERVER_ERROR;
 }
 
-/** @brief Ends current request with given status code
+/** @brief Ends current request with given status code and destroy request
+ *  object.
  *
  *  @return 0 if the connection should be kept alive. -1 if the connection
  *          should be closed.
  */
 int end_request(http_client_t *client, int code) {
-    char *connection;
     int ret;
 
     send_response_line(client, code);
 
     /* The client signal a "Connection: Close" */
-    connection = get_request_header(client->req, "Connection");
-    if (connection != NULL && strcicmp(connection, "Close") == 0)
+    if (connection_close(client->req))
         ret = -1;
     else
         ret=  0;
@@ -249,4 +248,19 @@ char* get_request_header(http_request_t *req, char *key) {
     }
 
     return NULL;
+}
+
+
+/** @brief Check if the value of Connection header is close
+ *
+ *  Return 1 if connection is stated "close" in request header. If there's no
+ *  "connection" header or connection is stated "keep-alive".
+ */
+int connection_close(http_request_t *req) {
+    char *connection;
+
+    connection = get_request_header(req, "connection");
+    if (connection != NULL && strcicmp(connection, "close") == 0)
+        return 1;
+    return 0;
 }

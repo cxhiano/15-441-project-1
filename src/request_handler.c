@@ -144,6 +144,10 @@ static int internal_handler(http_client_t *client, int flag) {
     send_header(client, "Date", date);
     send_header(client, "Last-Modified", last_modifiled);
     send_header(client, "Server", "Liso/1.0");
+    if (connection_close(client->req))
+        send_header(client, "Connection", "close");
+    else
+        send_header(client, "Connection", "keep-alive");
     client_write_string(client, "\r\n");
 
     if (flag == F_GET) {
