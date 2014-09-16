@@ -199,6 +199,9 @@ int handle_post(http_client_t *client) {
 
     content_len =  atoi(buf);
 
+    buf = malloc(content_len);
+    free(buf);
+
     /*
      * For now, since CGI has not been implemented, the response to a POST
      * request would be 501 Not Implemented
