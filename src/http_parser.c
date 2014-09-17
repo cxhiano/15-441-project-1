@@ -1,3 +1,8 @@
+/** @file http_parser.c
+ *  @brief Parse http requests and call handler to handle them
+ *
+ *  @author Chao Xin(cxin)
+ */
 #include <string.h>
 #include <stdlib.h>
 #include "config.h"
@@ -48,6 +53,7 @@ static int parse_request_line(http_request_t* req, char *line) {
 static char* copy_trimmed_string(char *head, char* tail) {
     char *buf;
 
+    //Remove heading and trailing spaces
     while (head <= tail) {
         if (*head != ' ' && *tail != ' ')
             break;
@@ -56,6 +62,7 @@ static char* copy_trimmed_string(char *head, char* tail) {
         if (*tail == ' ')
             tail -= 1;
     }
+    //After removing heading and trailing spaces, the string become empty
     if (head > tail)
         return NULL;
 
@@ -105,14 +112,19 @@ static int parse_header(http_request_t* req, char* line) {
  *          should be closed.
  */
 int http_parse(http_client_t *client) {
-    int ret;
+    int ret, i;
     char line[MAXBUF];
+    char* buf;
 
     if (client->req == NULL) {  /* A new request, parse request line */
         ret = client_readline(client, line);
         if (strlen(line) == 0) return 0;
 
         client->req = new_request();
+        /*
+         *
+         */
+        client->req->content_len = -1;
 
         log_msg(L_HTTP_DEBUG, "%s\n", line);
 
@@ -129,14 +141,30 @@ int http_parse(http_client_t *client) {
             return end_request(client, ret);
     }
 
-    /*  Read request headers */
-    while (client_readline(client, line) > 0) {
+    /*
+     *  Read request headers. When finish reading request headers of a POST
+     *  request without error, client->req->content_len will be set
+     *  correspondingly. Thus client->req->content_len == -1 means the request
+     *  header section has not ended.
+     */
+    while (client->req->content_len == -1 && client_readline(client, line) > 0) {
         log_msg(L_HTTP_DEBUG, "%s\n", line);
         if (strlen(line) == 0) {    //Request header ends
             if (strcicmp(client->req->method, "GET") == 0)
                 ret = handle_get(client);
-            if (strcicmp(client->req->method, "POST") == 0)
-                ret = handle_post(client);
+            if (strcicmp(client->req->method, "POST") == 0) {
+                buf = get_request_header(client->req, "Content-Length");
+                if (buf == NULL)
+                    return end_request(client, LENGTH_REQUIRED);
+                //validate content-length
+                if (strlen(buf) == 0) return BAD_REQUEST;
+                for (i = 0; i < strlen(buf); ++i)
+                    if (buf[i] < '0' || buf[i] >'9') //each char in range ['0', '9']
+                return end_request(client, BAD_REQUEST);
+
+                client->req->content_len =  atoi(buf);
+                break;
+            }
             if (strcicmp(client->req->method, "HEAD") == 0)
                 ret = handle_head(client);
 
@@ -161,6 +189,38 @@ int http_parse(http_client_t *client) {
             return end_request(client, BAD_REQUEST);
         }
     }
+
+    /*
+     * We've finished reading and parsing request header. Now, see if the body
+     * of the request is ready. If so, copy data
+     */
+    if (client->req->content_len > 0) {
+        if (client->in->datasize - client->in->pos >= client->req->content_len) {
+            /* Let body points to corresponding memory in the input buffer */
+            client->req->body = client->in->buf + client->in->pos;
+            client->in->pos += client->req->content_len;
+            ret = handle_post(client);
+
+            if (ret != 0)
+                return end_request(client, ret);
+            else {
+                /* The client signal a "Connection: Close" */
+                if (connection_close(client->req))
+                    ret = -1;
+                else
+                    ret = 0;
+
+                deinit_request(client->req);
+                client->req = NULL;
+
+                return ret;
+            }
+        }
+
+        /* Body not ready, next time then */
+        return 0;
+    }
+
 
     return 0;
 }

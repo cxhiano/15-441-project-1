@@ -18,7 +18,8 @@ typedef struct {
     int datasize;       //!<Size of data store in memory
     /**
      * An internal pointer for user, usually points to the head of unprocessed
-     * data.
+     * data. For an output buffer, pos points to the first byte which has not
+     * been sent
      */
     int pos;
 } buf_t;

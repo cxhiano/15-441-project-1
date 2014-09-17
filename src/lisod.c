@@ -25,6 +25,7 @@ static void usage() {
 	fprintf(stderr, "	certificate file – certificate file path\n");
 }
 
+/* Set up log system */
 static void config_log() {
 	log_mask = L_ERROR | L_HTTP_DEBUG | L_INFO;
 	set_log_file(log_file_name);

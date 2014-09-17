@@ -1,3 +1,18 @@
+/** @file http_client.c
+ *  @brief Contains implementation of communication between server and client.
+ *
+ *  A client will have an input buffer and output buffer. When the server
+ *  receive data from client, it put data in the input buffer. When server is
+ *  ready to write to a client, it takes data from the output buffer.
+ *
+ *  Two most important function here are doing similar things.
+ *  What client_readline do is getting data from the input buffer which is
+ *  filled by the server. (The server is feeding client_readline)
+ *  What client_write to is putting data in the output buffer and those data is
+ *  pending for the server to send.
+ *
+ *  @author Chao Xin(cxin)
+ */
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -48,6 +63,11 @@ void deinit_request(http_request_t *req) {
         ptr = tmp;
     }
 
+    /*
+     * Don't need to free body. Since it's a pointer to memory in the input
+     * buffer of a client.
+     */
+
     free(req);
 }
 
@@ -57,6 +77,7 @@ http_request_t* new_request() {
 
     req = malloc(sizeof(http_request_t));
     req->headers = NULL;
+    req->body = NULL;
 
     return req;
 }
@@ -82,11 +103,8 @@ void deinit_client(http_client_t *client) {
     close(client->fd);
     log_msg(L_INFO, "Closed fd %d\n", client->fd);
     io_deinit(client->in);
-    free(client->in);
     io_deinit(client->out);
-    free(client->out);
     deinit_request(client->req);
-    free(client->req);
     free(client);
 }
 

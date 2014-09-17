@@ -162,4 +162,5 @@ buf_t* io_init() {
  */
 void io_deinit(buf_t *bp) {
     free(bp->buf);
+    free(bp);
 }

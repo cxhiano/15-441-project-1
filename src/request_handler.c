@@ -56,6 +56,7 @@ static int open_file(char *uri, int *size, char *mimetype, char *last_modifiled)
     char path[2 * PATH_MAX];
     int fd;
 
+    /* Get the absolute path of www_folder */
     if (realpath(www_folder, path) == NULL) {
         log_error("handle_get error: realpath error");
         return -INTERNAL_SERVER_ERROR;
@@ -87,7 +88,7 @@ static int open_file(char *uri, int *size, char *mimetype, char *last_modifiled)
         return -INTERNAL_SERVER_ERROR;
     }
 
-    /* get the size of file by lseek */
+    /* get the size of file by lseek to the end of the file */
     if ((*size = lseek(fd, 0, SEEK_END)) == -1) {
         close(fd);
         log_error("handle_get error: lseek error");
@@ -178,26 +179,7 @@ int handle_head(http_client_t *client) {
  *  @return 0 if OK. Response status code if error.
  */
 int handle_post(http_client_t *client) {
-    char *buf;
-    int content_len;
-    int i;
-
     log_msg(L_INFO, "Handle POST request. URI: %s\n", client->req->uri);
-    buf = get_request_header(client->req, "Content-Length");
-    if (buf == NULL)
-        return LENGTH_REQUIRED;
-
-    //validate content-length
-    if (strlen(buf) == 0)
-        return BAD_REQUEST;
-    for (i = 0; i < strlen(buf); ++i)
-        if (buf[i] < '0' || buf[i] >'9') //each char in range ['0', '9']
-            return BAD_REQUEST;
-
-    content_len =  atoi(buf);
-
-    buf = malloc(content_len);
-    free(buf);
 
     /*
      * For now, since CGI has not been implemented, the response to a POST

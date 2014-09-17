@@ -1,5 +1,9 @@
 /** @file server.c
- *  @brief Implementation of a concurrent echo server
+ *  @brief Implementation of a concurrent http server
+ *
+ *  Newly arrive data will be append to the input buffer of the client. And
+ *  Each time when it's okay to send data to the client, the server tries to
+ *  send data from the output buffer of the client.
  *
  *  @author Chao Xin(cxin)
  */

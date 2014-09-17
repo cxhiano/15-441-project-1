@@ -34,19 +34,23 @@ typedef struct http_header {
 
 /** @brief Store information of a single request */
 typedef struct http_request {
-    char method[MAXBUF];        //<! Only accept GET, POST, HEAD as method
+    char method[MAXBUF];
     char uri[MAXBUF];
-    http_header_t *headers;
+    char *body;
+    int content_len;
+    http_header_t *headers; //Headers in a linked list
 } http_request_t;
 
 /** @brief Store information of a single client.
  *
- * Clients are organized using linked list.
+ *  Clients are organized using linked list. The server maintain an this object
+ *  for each client. The object includes the file descriptor, data regarding
+ *  current request, and an input buffer and an output buffer.
  */
 typedef struct http_client {
     int fd;                 //<!client's file descriptor
     buf_t *in, *out;        //<!input and output buffer assigned to this client
-    http_request_t* req;     //<!request from this client
+    http_request_t* req;     //<!current request from this client
     struct http_client* next;   //<!next client in the linked list
 } http_client_t;
 
