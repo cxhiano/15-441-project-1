@@ -31,6 +31,7 @@ void deinit_header(http_header_t *header) {
         free(header->key);
     if (header->val != NULL)
         free(header->val);
+    free(header);
 }
 
 /** @brief Destroy a http_request struct */
@@ -46,6 +47,8 @@ void deinit_request(http_request_t *req) {
         deinit_header(ptr);
         ptr = tmp;
     }
+
+    free(req);
 }
 
 /** @brief Create a new http_request */
