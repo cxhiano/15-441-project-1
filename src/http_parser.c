@@ -61,6 +61,7 @@ static char* copy_trimmed_string(char *head, char* tail) {
 
     buf = malloc(tail - head + 2);
     strncpy(buf, head, tail - head + 1);
+    buf[tail - head + 1] = '\0';
 
     return buf;
 }
@@ -88,7 +89,6 @@ static int parse_header(http_request_t* req, char* line) {
     header->val = copy_trimmed_string(val + 1, line + strlen(line) - 1);
     if (header->val == NULL) {
         deinit_header(header);
-        free(header);
         return -1;
     }
 
