@@ -27,12 +27,12 @@ static void usage() {
 
 static void config_log() {
 	log_mask = L_ERROR | L_HTTP_DEBUG | L_INFO;
-	//set_log_file(log_file_name);
+	set_log_file(log_file_name);
 }
 
 int main(int argc, char* argv[])
 {
-	if (argc < 2) {
+	if (argc < 6) {
 		usage();
 		return -1;
 	}
