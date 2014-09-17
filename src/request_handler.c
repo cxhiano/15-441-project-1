@@ -76,7 +76,6 @@ static int open_file(char *uri, int *size, char *mimetype, char *last_modifiled)
             else
                 strcat(path, "/index.html");
             if (stat(path, &s) == -1) {
-                free(path);
                 log_error("handle_get error: stat error");
                 return -NOT_FOUND;
             }
