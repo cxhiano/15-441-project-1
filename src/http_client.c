@@ -219,7 +219,7 @@ void send_header(http_client_t *client, char* key, char* val) {
     client_write_string(client, "\r\n");
 }
 
-//
+//In case of what kind of error should the connection be closed?
 static int is_fatal(int code) {
     return code == BAD_REQUEST || code == INTERNAL_SERVER_ERROR;
 }

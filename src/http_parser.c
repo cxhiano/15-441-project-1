@@ -122,7 +122,10 @@ int http_parse(http_client_t *client) {
 
         client->req = new_request();
         /*
-         *
+         * Set this value to -1 to indicate that the request header section has
+         * not finished.(When it's finish, the request will ends or, if it's a
+         * correct POST request, this value will be set accordingly and that
+         * indicates the end of request header section
          */
         client->req->content_len = -1;
 

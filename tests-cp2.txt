@@ -1,0 +1,40 @@
+1. Use valgrind to detect memory leak.
+
+2. Compose invalid requests:
+a)Method Not Allowed
+BAD / HTTP/1.1
+
+b)HTTP Version Not Supported
+GET / IM_NOT_HTTP/1.1
+
+c)Bad Request Line
+Send malformed request line(for example, random string)
+
+d)Bad Request Header
+Send malformed request header like:
+1)dsafadsfasdf
+2)Connection:
+3)  :   close
+
+d)Length Required
+POST / HTTP/1.1
+
+e)Not Found
+Send request to a file that does not exist
+
+f)Internal Server Error
+Use chmod command to remove the read access of index.html and then try to
+send a GET request to fetch it.
+
+3. Pipeline Test
+Use netcat to send a series of requests to the server one by one and see its
+response.
+
+4. Multiple Clients
+a)Establish serverl clients at the same time using netcat.
+b)Each of them send requests to the server.
+c)Some of those client send malformed request.
+
+5. Test Incomplete Request
+Use netcat to sent part of a valid request. And wait for a while before sending
+the remaining part of the request.

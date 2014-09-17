@@ -15,41 +15,18 @@
 --------------------------------------------------------------------------------
 
         [TOC-1] Table of Contents
-        [DES-2] Description of Files
-        [RUN-3] How to Run
-        [IMP-4] Description of Implementation
+        [RUN-2] How to Run
+        [CP1-3] Description of Implementation of Checkpoint 1
+        [CP2-4] Description of Implementation of Checkpoint 2
 
-[DES-2] Description of Files
+[RUN-2] How to Run
 --------------------------------------------------------------------------------
 
-                    .../readme.txt                  - Current document
-                    .../tests.txt                   - Description of test cases
-                    .../vulnerabilities.txt         - Documentation of
-                                                      vulnerabilities
-
-                    .../src/Makefile                - Contains rules for make
-                    .../src/lisod.c                 - Liso server laucher
-                    .../src/config.h                - Definition of global vars
-                    .../src/server.h                - Header file for server.c
-                    .../src/server.c                - Implementation of server
-                    .../src/io.h                    - Header file for io.c
-                    .../src/io.c                    - Socket IO functions
-
-                    .../test/cp1_checker.py         - Python test script for CP1
-                    .../test/linked_list.py         - Test linked list
-                                                      Implementation
-                    .../test/large_data.py          - Test server with large
-                                                      data
-
-
-[RUN-3] How to Run
---------------------------------------------------------------------------------
-
-    cd src
+    make clean
     make
-    ./lisod <HTTP port>
+    ./lisod <HTTP port> <HTTPS port> <log file> <lock file> <www folder>
 
-[IMP-4] Description of Implementation
+[CP1-3] Description of Implementation of Checkpoint 1
 --------------------------------------------------------------------------------
 SIGPIPE is set to be ignored before server starts accepting requests.
 
@@ -80,3 +57,54 @@ capacity, buffer capacity will be increased to 1.5 times its original capacity.
 The memory buffers will also shrink. Each time after sending data, if free
 space in the buffer is more than the initial size of the buffer, half of free
 space in the buffer will be freed.
+
+[CP1-4] Description of Implementation of Checkpoint 2
+--------------------------------------------------------------------------------
+Firse some changes:
+1) The dynamic buffer growing strategy is changed. The old strategy waste a lot
+of memory. Now, the capacity of buffer will be increased to 1.5 times its
+original capacity when data size is close to buffer capacity.(More specifically,
+data + 512 > buffer).
+
+2)A client has two buffers now, one for input one for output.
+
+The HTTP server has a 3-layers:
+
+Layer 0: Server Layer. The server layer interacts with client directly.
+
+When data arrives, the server stores the data in the input buffer associated with
+the client and call parser to parse it.
+
+The server also check the output buffer, if it's not empty, send its data to
+client.
+
+Source files: io.c server.c
+---------------------------
+
+Layer 1: Parser Layer. The parser layer does not interact with client, it gets
+data from the input buffer and puts data to the output buffer.
+
+HTTP parser parses data and store useful information in request object. Once
+a request has been read completely, it will call function in the Handler Layer
+to handle the request. The parser maintains status so that it can continue where
+it left last time when it's called.
+
+The status of parser includes:
+1. The position of the beginning of un-processed data in the input buffer.
+2. What's coming next? Request Line? Request Header? Request Body?
+
+This layer also provides function to send response headers(What it actually
+does is putting the string to the output buffer and let Server Layer to send
+it to client).
+
+Source files: http_client.c http_parser.c
+---------------------------
+
+Layer 2: Handler Layer. This layer response to HTTP GET, POST, HEAD requests.
+
+Handlers in this layer will be called when a complete HTTP request is read. A
+handler use the information provided by parser layer which is a request
+object. And it also call parser layer function to send response to client. (
+Including headers, status code)
+
+Source file: request_handler.c
