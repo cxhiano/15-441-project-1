@@ -3,6 +3,7 @@
  *
  *  @author Chao Xin(cxin)
  */
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
@@ -52,12 +53,10 @@ static char* get_mimetype(char* path) {
  */
 static int open_file(char *uri, int *size, char *mimetype, char *last_modifiled) {
     struct stat s;
-    char *path;
+    char path[2 * PATH_MAX];
     int fd;
 
-    path = malloc(strlen(www_folder) + strlen(uri) + 20);
     if (realpath(www_folder, path) == NULL) {
-        free(path);
         log_error("handle_get error: realpath error");
         return -INTERNAL_SERVER_ERROR;
     }
@@ -65,7 +64,6 @@ static int open_file(char *uri, int *size, char *mimetype, char *last_modifiled)
 
     /* Check if the file exists */
     if (stat(path, &s) == -1) {
-        free(path);
         log_error("handle_get error: stat error");
         return -NOT_FOUND;
     }
@@ -86,28 +84,24 @@ static int open_file(char *uri, int *size, char *mimetype, char *last_modifiled)
     }
 
     if ((fd = open(path, O_RDONLY)) == -1) {
-        free(path);
         log_error("handle_get error: open error");
         return -INTERNAL_SERVER_ERROR;
     }
 
     /* get the size of file by lseek */
     if ((*size = lseek(fd, 0, SEEK_END)) == -1) {
-        free(path);
         close(fd);
         log_error("handle_get error: lseek error");
         return -INTERNAL_SERVER_ERROR;
     }
     /* restore offset */
     if (lseek(fd, 0, SEEK_SET) == -1) {
-        free(path);
         close(fd);
         log_error("handle_get error: lseek error");
         return -INTERNAL_SERVER_ERROR;
     }
 
     strcpy(mimetype, get_mimetype(path));
-    free(path);
 
     strftime(last_modifiled, 128, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&(s.st_mtime)));
 
@@ -165,7 +159,7 @@ static int internal_handler(http_client_t *client, int flag) {
  *  @return 0 if OK. Response status code if error.
  */
 int handle_get(http_client_t *client) {
-    log_msg(L_INFO, "Handler GET request. URI: %s\n", client->req->uri);
+    log_msg(L_INFO, "Handle GET request. URI: %s\n", client->req->uri);
     return internal_handler(client, F_GET);
 }
 
