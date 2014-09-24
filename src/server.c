@@ -21,6 +21,10 @@
 #include "http_client.h"
 #include "http_parser.h"
 
+int terminate = 0;
+
+static int server_fd;
+
 /** @brief Create and config a socket on given port. */
 static int setup_server_socket(unsigned short port) {
 	static int yes = 1; //For setsockopt
@@ -58,6 +62,23 @@ static int setup_server_socket(unsigned short port) {
 	return server_fd;
 }
 
+/** @brief Finalize the server
+ *
+ *  Free all memory and close all sockets.
+ */
+void finalize() {
+	http_client_t *client, *next;
+
+	close(server_fd);
+
+	for (client = client_head; client != NULL; client = next) {
+		next = client->next;
+		deinit_client(client);
+	}
+
+	log_msg(L_INFO, "bye~\n");
+}
+
 /** @brief Create a concurrent server to serve on given port
  *
  *  Use select() to handle multiple socket. Each time a new connection
@@ -69,7 +90,7 @@ static int setup_server_socket(unsigned short port) {
  *  @return Should never return
  */
 void serve(unsigned short port) {
-	int server_fd, client_fd;
+	int client_fd;
 	socklen_t client_addr_len;
 	struct sockaddr_in client_addr;
 
@@ -94,7 +115,7 @@ void serve(unsigned short port) {
 
 	/*===============Start accepting requests================*/
 	client_addr_len = sizeof(client_addr);
-	while (1) {
+	while (!terminate) {
 		read_fds = master;
 		write_fds = master;
 		FD_SET(server_fd, &read_fds);

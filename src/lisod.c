@@ -5,11 +5,30 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <signal.h>
+#include <fcntl.h>
 #include "config.h"
 #include "server.h"
 #include "log.h"
 
 char* http_version = "HTTP/1.1";
+
+/**
+ * SIGHUP indicates that the config file should be reloaded.
+ */
+static void sighup_handler(int sig) {
+}
+
+/**
+ * SIGTERM informs the server to terminate. Finalization work here
+ */
+static void sigterm_handler(int sig) {
+	terminate = 1;
+	finalize();
+	exit(EXIT_SUCCESS);
+}
 
 static void usage() {
 	fprintf(stderr, "Usage: ./lisod <HTTP port> <HTTPS port> <log file> <lock file> <www folder>");
@@ -31,6 +50,64 @@ static void config_log() {
 	set_log_file(log_file_name);
 }
 
+static void daemonlize(char* lock_file) {
+	int pid, lfp, i;
+
+   	signal(SIGTERM, sigterm_handler);
+	return;
+	pid = fork();
+	if (pid < 0) exit(EXIT_FAILURE); // fork error
+	if (pid > 0) exit(EXIT_SUCCESS); // parent exit;
+
+	//Only fork once?
+
+	// Daemon continues
+	signal(SIGHUP, SIG_IGN); // Ignore SIGHUP for now. Prevent terminating
+
+	if (setsid() == -1) { // get a new sid
+		log_error("setsid error");
+		exit(EXIT_FAILURE);
+	}
+
+	umask(027); // Deny others from writing the file created by this daemon
+
+	lfp = open(lock_file, O_RDWR|O_CREAT, 0640); // open lock file
+	if (lfp < 0) {
+		log_error("open lock_file error");
+		exit(EXIT_FAILURE);
+	}
+
+	if (lockf(lfp, F_TLOCK, 0) < 0) {
+		log_error("lockf error");
+		exit(EXIT_FAILURE);
+	}
+
+	// Only first instance continues
+	dprintf(lfp, "%d\n", getpid());
+
+	// Close file descriptor
+	for (i = getdtablesize(); i >= 0; --i)
+		close(i);
+
+	//redirect stdin stdout stderr to /dev/null
+	open("/dev/null", O_RDWR);	// Allocate fd 0(stdin)
+	open("/dev/null", O_RDWR);  // 1(stdout)
+	open("/dev/null", O_RDWR);  // 2(stderr)
+
+    // Server must run in known directory
+    if ((chdir("/")) < 0) {
+    	log_error("chdir error");
+    	exit(EXIT_FAILURE);
+    }
+
+    // Signal handling
+    signal(SIGHUP, sighup_handler);
+   	signal(SIGTERM, sigterm_handler);
+
+    log_msg(L_INFO, "Successfully daemonized lisod process, pid %d.",
+    	getpid());
+}
+
 int main(int argc, char* argv[])
 {
 	if (argc < 6) {
@@ -50,6 +127,8 @@ int main(int argc, char* argv[])
 	*/
 
 	config_log();
+
+	daemonlize(lock_file);
 
 	serve(http_port);
 
