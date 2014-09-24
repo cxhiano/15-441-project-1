@@ -75,8 +75,6 @@ void finalize() {
 		next = client->next;
 		deinit_client(client);
 	}
-
-	log_msg(L_INFO, "bye~\n");
 }
 
 /** @brief Create a concurrent server to serve on given port

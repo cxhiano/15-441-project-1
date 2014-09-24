@@ -27,6 +27,7 @@ static void sighup_handler(int sig) {
 static void sigterm_handler(int sig) {
 	terminate = 1;
 	finalize();
+	log_msg(L_INFO, "Server terminated. Bye~");
 	exit(EXIT_SUCCESS);
 }
 
@@ -53,8 +54,6 @@ static void config_log() {
 static void daemonlize(char* lock_file) {
 	int pid, lfp, i;
 
-   	signal(SIGTERM, sigterm_handler);
-	return;
 	pid = fork();
 	if (pid < 0) exit(EXIT_FAILURE); // fork error
 	if (pid > 0) exit(EXIT_SUCCESS); // parent exit;
@@ -65,7 +64,7 @@ static void daemonlize(char* lock_file) {
 	signal(SIGHUP, SIG_IGN); // Ignore SIGHUP for now. Prevent terminating
 
 	if (setsid() == -1) { // get a new sid
-		log_error("setsid error");
+		perror("setsid error");
 		exit(EXIT_FAILURE);
 	}
 
@@ -73,7 +72,7 @@ static void daemonlize(char* lock_file) {
 
 	lfp = open(lock_file, O_RDWR|O_CREAT, 0640); // open lock file
 	if (lfp < 0) {
-		log_error("open lock_file error");
+		perror("open lock_file error");
 		exit(EXIT_FAILURE);
 	}
 
@@ -95,14 +94,16 @@ static void daemonlize(char* lock_file) {
 	open("/dev/null", O_RDWR);  // 2(stderr)
 
     // Server must run in known directory
-    if ((chdir("/")) < 0) {
+    /*if ((chdir("/")) < 0) {
     	log_error("chdir error");
     	exit(EXIT_FAILURE);
-    }
+    }*/
 
     // Signal handling
     signal(SIGHUP, sighup_handler);
    	signal(SIGTERM, sigterm_handler);
+
+	config_log();
 
     log_msg(L_INFO, "Successfully daemonized lisod process, pid %d.",
     	getpid());
@@ -125,8 +126,6 @@ int main(int argc, char* argv[])
 	private_key_file = argv[7];
 	certificate_file = argv[8];
 	*/
-
-	config_log();
 
 	daemonlize(lock_file);
 
