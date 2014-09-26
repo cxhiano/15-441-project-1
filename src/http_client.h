@@ -27,7 +27,12 @@
 #define C_IDLE 0            // Idle
 #define C_PHEADER 1         // Parsing header
 #define C_PBODY 2           // Waiting for complete body
-/* The client is piping from a file or cgi output to the client socket */
+/**
+ * The client is piping from a file or cgi output to the client socket. When
+ * a client is in this status, it will not do any parsing until the piping is
+ * done. This prevents the server from returning the response data of next
+ * request before finishing the current response.
+ */
 #define C_PIPING 3
 
 /* Methods */

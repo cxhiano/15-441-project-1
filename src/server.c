@@ -151,6 +151,7 @@ void serve(unsigned short port) {
 				if (nbytes == -1) bad = 1;
 			}
 
+			// Parse data
 			if (!bad && client->status != C_PIPING) {
 				if (http_parse(client) == -1) {
 					// Something goes wrong and beyond repair.

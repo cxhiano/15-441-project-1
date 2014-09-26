@@ -146,14 +146,16 @@ int io_send(int sock, buf_t *bp) {
 /** @brief Pipe content directly to client socket without reading it extirely
  *         into buffer
  *
- *  @return 1 piping complete. 0 to be continued. -1 error.
+ *  If buf in pipe is not empty, send data in buf to socket sock. After the buf
+ *  becomes empty, refill it using data read from fd associated with the pipe.
  *
+ *  @return 1 piping complete. 0 to be continued. -1 error.
  */
 int io_pipe(int sock, pipe_t *pp) {
     int n;
 
-    if (pp->datasize <= pp->offset) {
-        pp->datasize = read(pp->from_fd, pp->buf, BUFSIZE);
+    if (pp->datasize <= pp->offset) { // No data in buf
+        pp->datasize = read(pp->from_fd, pp->buf, BUFSIZE); // Get new data
         if (pp->datasize == -1) {
             close(pp->from_fd);
             remove_read_fd(pp->from_fd);

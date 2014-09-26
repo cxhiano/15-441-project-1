@@ -13,9 +13,7 @@
  */
 #define BUFSIZE 1024
 
-/** @brief
- *
- */
+/** @brief Context for using select */
 typedef struct {
     fd_set read_fds, read_fds_cpy;
     fd_set write_fds, write_fds_cpy;
@@ -35,8 +33,10 @@ typedef struct {
     int pos;
 } buf_t;
 
-/** @brief
+/** @brief A struct for piping content from specific fd
  *
+ *  Data in from_fd will be first read into buf, and directly sent out. This
+ *  process will be repeated until an error occurs or an EOF is read.
  */
 typedef struct {
     int from_fd;

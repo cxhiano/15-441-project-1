@@ -145,6 +145,11 @@ static int internal_handler(http_client_t *client, int flag) {
         send_header(client, "Connection", "keep-alive");
     client_write_string(client, "\r\n");
 
+    /**
+     * A GET request should send the file content back to the client. Here, we
+     * just pipe the file directly to the client socket. See io_pipe() in io.c
+     * for more information
+     */
     if (flag == F_GET) {
         client->pipe = init_pipe();
         client->pipe->from_fd = fd;
