@@ -17,7 +17,9 @@
  *
  */
 typedef struct {
-
+    fd_set read_fds, read_fds_cpy;
+    fd_set write_fds, write_fds_cpy;
+    int fd_max;
 } io_context;
 
 /** @brief A dynamic size buffer */
@@ -43,16 +45,29 @@ typedef struct {
     int datasize;
 } pipe_t;
 
+/* Init and deinit data structure */
 buf_t* init_buf();
 void deinit_buf(buf_t *bp);
 pipe_t* init_pipe();
 
+/* Monitor dynamic buffer */
 int full(buf_t *bp);
 int empty(buf_t *bp);
 void io_shrink(buf_t *bp);
 
+/* Send/recv with client */
 int io_recv(int sock, buf_t *bp);
 int io_send(int sock, buf_t *bp);
 int io_pipe(int sock, pipe_t *pp);
+
+/* IO context */
+int io_select();       // Shorthand for select
+void init_io_context();
+void add_read_fd(int fd);
+void remove_read_fd(int fd);
+int test_read_fd(int fd);
+void add_write_fd(int fd);
+void remove_write_fd(int fd);
+int test_write_fd(int fd);
 
 #endif

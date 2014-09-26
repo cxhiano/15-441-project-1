@@ -12,8 +12,11 @@
 #include <sys/socket.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 #include "io.h"
 #include "log.h"
+
+static io_context context;
 
 /** @brief The buffer is full and need to be expand? */
 inline int full(buf_t *bp) {
@@ -208,4 +211,46 @@ buf_t* init_buf() {
 void deinit_buf(buf_t *bp) {
     free(bp->buf);
     free(bp);
+}
+
+void init_io_context() {
+    FD_ZERO(&context.read_fds);
+    FD_ZERO(&context.read_fds_cpy);
+    FD_ZERO(&context.write_fds);
+    FD_ZERO(&context.write_fds_cpy);
+}
+
+void add_read_fd(int fd) {
+    FD_SET(fd, &context.read_fds_cpy);
+    if (fd > context.fd_max)
+        context.fd_max = fd;
+}
+
+void remove_read_fd(int fd) {
+    FD_CLR(fd, &context.read_fds_cpy);
+}
+
+int test_read_fd(int fd) {
+    return FD_ISSET(fd, &context.read_fds);
+}
+
+void add_write_fd(int fd) {
+    FD_SET(fd, &context.write_fds_cpy);
+    if (fd > context.fd_max)
+        context.fd_max = fd;
+}
+
+void remove_write_fd(int fd) {
+    FD_CLR(fd, &context.write_fds_cpy);
+}
+
+int test_write_fd(int fd) {
+    return FD_ISSET(fd, &context.write_fds);
+}
+
+int io_select() {
+    context.read_fds = context.read_fds_cpy;
+    context.write_fds = context.write_fds_cpy;
+    return select(context.fd_max + 1, &context.read_fds, &context.write_fds,
+        NULL, NULL);
 }

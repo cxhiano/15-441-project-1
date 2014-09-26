@@ -92,11 +92,6 @@ void serve(unsigned short port) {
 	socklen_t client_addr_len;
 	struct sockaddr_in client_addr;
 
-	fd_set master, 		//master fd list
-		   read_fds, write_fds; //fd list to be passed in to select()
-
-	int fd_max;		//Keep track of max fd passed into select()
-
 	http_client_t *client,
 				  *prev; //previous item in linked list when iterating
 	int nbytes;
@@ -108,29 +103,27 @@ void serve(unsigned short port) {
 	signal(SIGPIPE, SIG_IGN);
 
 	//initialize fd lists
-	FD_ZERO(&master);
-	fd_max = server_fd;
+	init_io_context();
+	add_read_fd(server_fd);
 
 	/*===============Start accepting requests================*/
 	client_addr_len = sizeof(client_addr);
 	while (!terminate) {
-		read_fds = master;
-		write_fds = master;
-		FD_SET(server_fd, &read_fds);
-
-		if (select(fd_max + 1, &read_fds, &write_fds, NULL, NULL) == -1) {
+		if (io_select() == -1) {
 			log_error("select error");
 			continue;
 		}
 
 		//New request!
-		if (FD_ISSET(server_fd, &read_fds)) {
+		if (test_read_fd(server_fd)) {
 			if ((client_fd = accept(server_fd, (struct sockaddr *)&client_addr,
 									(socklen_t *)&client_addr_len)) == -1) {
 				log_error("Error accepting connection.");
+				continue;
 			}
 			//Add socket to fd list
-			FD_SET(client_fd, &master);
+			add_read_fd(client_fd);
+			add_write_fd(client_fd);
 			//Make client_fd a non-blocking socket
 			fcntl(client_fd, F_SETFL, O_NONBLOCK);
 			//Insert into client list
@@ -144,8 +137,6 @@ void serve(unsigned short port) {
 			}
 		}
 
-		fd_max = server_fd;
-
 		prev = NULL;
 		for (client = client_head; client != NULL; ) {
 			/*
@@ -156,7 +147,7 @@ void serve(unsigned short port) {
 			nbytes = 1;
 
 			// New data arrived!
-			if (client->status != C_PIPING && FD_ISSET(client->fd, &read_fds))
+			if (client->status != C_PIPING && test_read_fd(client->fd))
 				nbytes = io_recv(client->fd, client->in);
 
 			if (nbytes > 0) {
@@ -180,12 +171,13 @@ void serve(unsigned short port) {
 
 			// Send data to client
 			if (nbytes > 0 && client->status != C_PIPING &&
-					FD_ISSET(client->fd, &write_fds) &&
-					 client->out->pos < client->out->datasize)
+					test_write_fd(client->fd) &&
+					client->out->pos < client->out->datasize)
 				nbytes = io_send(client->fd, client->out);
 
 			if (nbytes <= 0) { //Delete client
-				FD_CLR(client->fd, &master); //Remove from fd set
+				remove_read_fd(client_fd);
+				remove_write_fd(client_fd);
 
 				//Remove from the linked list
 				if (prev == NULL)
@@ -199,8 +191,6 @@ void serve(unsigned short port) {
 				else
 					client = prev->next;
 			} else {
-				if (client->fd > fd_max)
-					fd_max = client->fd;
 				prev = client;
 				client = client->next;
 			}
