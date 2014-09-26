@@ -103,7 +103,7 @@ void serve(unsigned short port) {
 	signal(SIGPIPE, SIG_IGN);
 
 	//initialize fd lists
-	init_io_context();
+	init_select_context();
 	add_read_fd(server_fd);
 
 	/*===============Start accepting requests================*/

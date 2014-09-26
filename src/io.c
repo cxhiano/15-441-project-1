@@ -16,7 +16,7 @@
 #include "io.h"
 #include "log.h"
 
-static io_context context;
+static select_context context;
 
 /** @brief The buffer is full and need to be expand? */
 inline int full(buf_t *bp) {
@@ -100,17 +100,12 @@ int io_recv(int sock, buf_t *bp) {
     return bp->datasize;
 }
 
-/*
- * io_send - Send data to socket sock
+/** @ Send data to socket sock
  *
  * Repeatedly call send() to send data in buffer to socket sock until all the
  * data is sent.
- * ----------------------------------------------------------------------------
- * Args:
- *      bp - a pointer to a buf_t struct
- * Returns:
- *      number of bytes sent
- *      -1: error
+ *
+ * @return Number of bytes sent, -1 on error
  */
 int io_send(int sock, buf_t *bp) {
     int bytes_sent = 0, nbytes;
@@ -218,7 +213,7 @@ void deinit_buf(buf_t *bp) {
     free(bp);
 }
 
-void init_io_context() {
+void init_select_context() {
     FD_ZERO(&context.read_fds);
     FD_ZERO(&context.read_fds_cpy);
     FD_ZERO(&context.write_fds);
@@ -253,6 +248,10 @@ int test_write_fd(int fd) {
     return FD_ISSET(fd, &context.write_fds);
 }
 
+/** @brief Wrapper for select()
+ *
+ *  @return What select() returns
+ */
 int io_select() {
     context.read_fds = context.read_fds_cpy;
     context.write_fds = context.write_fds_cpy;

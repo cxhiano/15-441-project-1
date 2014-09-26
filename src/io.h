@@ -18,7 +18,7 @@ typedef struct {
     fd_set read_fds, read_fds_cpy;
     fd_set write_fds, write_fds_cpy;
     int fd_max;
-} io_context;
+} select_context;
 
 /** @brief A dynamic size buffer */
 typedef struct {
@@ -60,9 +60,9 @@ int io_recv(int sock, buf_t *bp);
 int io_send(int sock, buf_t *bp);
 int io_pipe(int sock, pipe_t *pp);
 
-/* IO context */
+/* Select context */
 int io_select();       // Shorthand for select
-void init_io_context();
+void init_select_context();
 void add_read_fd(int fd);
 void remove_read_fd(int fd);
 int test_read_fd(int fd);
