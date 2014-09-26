@@ -54,6 +54,7 @@ static void config_log() {
 static void daemonlize(char* lock_file) {
 	int pid, lfp, i;
 
+	return;
 	pid = fork();
 	if (pid < 0) exit(EXIT_FAILURE); // fork error
 	if (pid > 0) exit(EXIT_SUCCESS); // parent exit;

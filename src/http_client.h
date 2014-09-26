@@ -19,6 +19,22 @@
 #define SERVICE_UNAVAILABLE 503
 #define HTTP_VERSION_NOT_SUPPORTED 505
 
+/**
+ * Client status code
+ *
+ * Indicates what's happening with a client
+ */
+#define C_IDLE 0            // Idle
+#define C_PHEADER 1         // Parsing header
+#define C_PBODY 2           // Waiting for complete body
+/* The client is piping from a file or cgi output to the client socket */
+#define C_PIPING 3
+
+/* Methods */
+#define M_GET 0
+#define M_HEAD 1
+#define M_POST 2
+
 /* Maximum size of a string buffer */
 #define MAXBUF 8096
 
@@ -34,7 +50,7 @@ typedef struct http_header {
 
 /** @brief Store information of a single request */
 typedef struct http_request {
-    char method[MAXBUF];
+    int method;
     char uri[MAXBUF];
     char *body;
     int content_len;
@@ -49,6 +65,8 @@ typedef struct http_request {
  */
 typedef struct http_client {
     int fd;                 //<!client's file descriptor
+    pipe_t *pipe;           //<!pipe from a file or cgi output
+    int status;             //<!thte current status of this client
     buf_t *in, *out;        //<!input and output buffer assigned to this client
     http_request_t* req;     //<!current request from this client
     struct http_client* next;   //<!next client in the linked list

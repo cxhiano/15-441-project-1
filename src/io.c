@@ -17,13 +17,13 @@
 
 /** @brief The buffer is full and need to be expand? */
 inline int full(buf_t *bp) {
-    return bp->datasize + (INIT_BUFFERSIZE >> 1) > bp->bufsize;
+    return bp->datasize + (BUFSIZE >> 1) > bp->bufsize;
 }
 
 /** @brief The buffer is empty and should be shrink? */
 inline int empty(buf_t *bp) {
     int freespace = bp->bufsize - bp->datasize + bp->pos;
-    return freespace > INIT_BUFFERSIZE;
+    return freespace > BUFSIZE;
 }
 
 /** @brief Shrink buffer size
@@ -140,14 +140,59 @@ int io_send(int sock, buf_t *bp) {
     return bytes_sent;
 }
 
+/** @brief Pipe content directly to client socket without reading it extirely
+ *         into buffer
+ *
+ *  @return 1 piping complete. 0 to be continued. -1 error.
+ *
+ */
+int io_pipe(int sock, pipe_t *pp) {
+    int n;
+
+    if (pp->datasize <= pp->offset) {
+        pp->datasize = read(pp->from_fd, pp->buf, BUFSIZE);
+        if (pp->datasize == -1) {
+            close(pp->from_fd);
+            log_error("io_pipe read error");
+            return -1;
+        }
+        if (pp->datasize == 0) { // Got EOF. Piping completed
+            close(pp->from_fd);
+            return 1;
+        }
+        pp->offset = 0;
+    }
+    n = send(sock, pp->buf + pp->offset, pp->datasize - pp->offset, 0);
+    if (n == -1) {
+        close(pp->from_fd);
+        log_error("io_pipe send error");
+        return -1;
+    }
+    pp->offset += n;
+
+    return 0;
+}
+
+/** @brief Init a pipe_t struct
+ *
+ *  @return A pointer to the newly created pipe_t struct
+ */
+pipe_t* init_pipe() {
+    pipe_t *pp = malloc(sizeof(pipe_t));
+
+    pp->offset = 0;
+    pp->datasize = 0;
+    return pp;
+}
+
 /** @brief Init a buf_t struct
  *
  *  @return A pointer to the newly created buf_t struct
  */
-buf_t* io_init() {
+buf_t* init_buf() {
     buf_t *bp = malloc(sizeof(buf_t));
 
-    bp->bufsize = INIT_BUFFERSIZE;
+    bp->bufsize = BUFSIZE;
     bp->datasize = 0;
     bp->pos = 0;
     bp->buf = malloc(bp->bufsize);
@@ -160,7 +205,7 @@ buf_t* io_init() {
  *  @param bp A buf_t struct
  *  @return Void
  */
-void io_deinit(buf_t *bp) {
+void deinit_buf(buf_t *bp) {
     free(bp->buf);
     free(bp);
 }

@@ -42,6 +42,7 @@ int strcicmp(char* s1, char* s2) {
 
 /** @brief Destroy a http_header struct */
 void deinit_header(http_header_t *header) {
+    if (header == NULL) return;
     if (header->key != NULL)
         free(header->key);
     if (header->val != NULL)
@@ -87,11 +88,12 @@ http_client_t* new_client(int fd) {
     http_client_t *client = malloc(sizeof(http_client_t));
 
     client->fd = fd;
+    client->status = C_IDLE;
 
-    client->in = io_init();
-    client->out = io_init();
+    client->in = init_buf();
+    client->out = init_buf();
 
-    client->req = NULL;
+    client->req = new_request();
 
     client->next = NULL;
 
@@ -100,10 +102,11 @@ http_client_t* new_client(int fd) {
 
 /** @brief Destroy a client struct, free all its resource */
 void deinit_client(http_client_t *client) {
+    if (client == NULL) return;
     close(client->fd);
     log_msg(L_INFO, "Closed fd %d\n", client->fd);
-    io_deinit(client->in);
-    io_deinit(client->out);
+    deinit_buf(client->in);
+    deinit_buf(client->out);
     deinit_request(client->req);
     free(client);
 }
@@ -123,10 +126,10 @@ void client_write(http_client_t *client, char* buf, int buf_len) {
     //The space is not enough, realloc !
     if (c_buf->datasize + buf_len > c_buf->bufsize) {
         /*
-         * An additional INIt_BUFFERSIZE is added to the bufsize to prevent
+         * An additional BUFSIZE is added to the bufsize to prevent
          * frequent realloc
          */
-        c_buf->bufsize = c_buf->datasize + buf_len + INIT_BUFFERSIZE;
+        c_buf->bufsize = c_buf->datasize + buf_len + BUFSIZE;
         c_buf->buf = realloc(c_buf->buf, c_buf->bufsize);
     }
 
@@ -240,9 +243,6 @@ int end_request(http_client_t *client, int code) {
         ret = -1;
     else
         ret=  0;
-
-    deinit_request(client->req);
-    client->req = NULL;
 
     if (is_fatal(code)) {
         send_header(client, "Connection", "Close");

@@ -15,17 +15,20 @@
  *  @return 0 on success. HTTP status code on error.
  */
 static int parse_request_line(http_request_t* req, char *line) {
-    char version[MAXBUF];
+    char method[MAXBUF], version[MAXBUF];
 
-    if (sscanf(line, "%s %s %s", req->method, req->uri, version) < 3) {
+    if (sscanf(line, "%s %s %s", method, req->uri, version) < 3) {
         log_msg(L_ERROR, "Bad request line: %s\n", line);
         return BAD_REQUEST;
     }
 
+    req->method = -1;
+    if (strcicmp(method, "GET") == 0) req->method = M_GET;
+    if (strcicmp(method, "HEAD") == 0) req->method = M_HEAD;
+    if (strcicmp(method, "POST") == 0) req->method = M_POST;
+
     //Method not allowed.
-    if (strcicmp(req->method, "GET") != 0 &&
-            strcicmp(req->method, "HEAD") != 0 &&
-            strcicmp(req->method, "POST") != 0) {
+    if (req->method == -1) {
         log_msg(L_ERROR, "Method not allowed: %s\n", req->method);
         return METHOD_NOT_ALLOWED;
     }
@@ -116,18 +119,9 @@ int http_parse(http_client_t *client) {
     char line[MAXBUF];
     char* buf;
 
-    if (client->req == NULL) {  /* A new request, parse request line */
+    if (client->status == C_IDLE) {  /* A new request, parse request line */
         ret = client_readline(client, line);
         if (strlen(line) == 0) return 0;
-
-        client->req = new_request();
-        /*
-         * Set this value to -1 to indicate that the request header section has
-         * not finished.(When it's finish, the request will ends or, if it's a
-         * correct POST request, this value will be set accordingly and that
-         * indicates the end of request header section
-         */
-        client->req->content_len = -1;
 
         log_msg(L_HTTP_DEBUG, "%s\n", line);
 
@@ -142,6 +136,9 @@ int http_parse(http_client_t *client) {
         /* parse request line and store information in client->req */
         if ((ret = parse_request_line(client->req, line)) > 0)
             return end_request(client, ret);
+
+        /* Now start parsing header */
+        client->status = C_PHEADER;
     }
 
     /*
@@ -150,12 +147,13 @@ int http_parse(http_client_t *client) {
      *  correspondingly. Thus client->req->content_len == -1 means the request
      *  header section has not ended.
      */
-    while (client->req->content_len == -1 && client_readline(client, line) > 0) {
+    while (client->status == C_PHEADER && client_readline(client, line) > 0) {
         log_msg(L_HTTP_DEBUG, "%s\n", line);
+
         if (strlen(line) == 0) {    //Request header ends
-            if (strcicmp(client->req->method, "GET") == 0)
-                ret = handle_get(client);
-            if (strcicmp(client->req->method, "POST") == 0) {
+            if (client->req->method == M_GET) ret = handle_get(client);
+            if (client->req->method == M_HEAD) ret = handle_head(client);
+            if (client->req->method == M_POST) {
                 buf = get_request_header(client->req, "Content-Length");
                 if (buf == NULL)
                     return end_request(client, LENGTH_REQUIRED);
@@ -166,10 +164,11 @@ int http_parse(http_client_t *client) {
                 return end_request(client, BAD_REQUEST);
 
                 client->req->content_len =  atoi(buf);
+
+                /* Now start receiving body */
+                client->status = C_PBODY;
                 break;
             }
-            if (strcicmp(client->req->method, "HEAD") == 0)
-                ret = handle_head(client);
 
             if (ret != 0)
                 return end_request(client, ret);
@@ -179,9 +178,6 @@ int http_parse(http_client_t *client) {
                     ret = -1;
                 else
                     ret = 0;
-
-                deinit_request(client->req);
-                client->req = NULL;
 
                 return ret;
             }
@@ -197,7 +193,8 @@ int http_parse(http_client_t *client) {
      * We've finished reading and parsing request header. Now, see if the body
      * of the request is ready. If so, copy data
      */
-    if (client->req->content_len > 0) {
+    if (client->status == C_PBODY) {
+        // Reveive complete body?
         if (client->in->datasize - client->in->pos >= client->req->content_len) {
             /* Let body points to corresponding memory in the input buffer */
             client->req->body = client->in->buf + client->in->pos;
@@ -213,9 +210,6 @@ int http_parse(http_client_t *client) {
                 else
                     ret = 0;
 
-                deinit_request(client->req);
-                client->req = NULL;
-
                 return ret;
             }
         }
@@ -223,7 +217,6 @@ int http_parse(http_client_t *client) {
         /* Body not ready, next time then */
         return 0;
     }
-
 
     return 0;
 }

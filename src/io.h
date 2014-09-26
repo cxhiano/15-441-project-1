@@ -6,10 +6,19 @@
 #ifndef __MYIO_H__
 #define __MYIO_H__
 
+#include <unistd.h>
+
 /*
  * Initial buffer size
  */
-#define INIT_BUFFERSIZE 1024
+#define BUFSIZE 1024
+
+/** @brief
+ *
+ */
+typedef struct {
+
+} io_context;
 
 /** @brief A dynamic size buffer */
 typedef struct {
@@ -24,8 +33,19 @@ typedef struct {
     int pos;
 } buf_t;
 
-buf_t* io_init();
-void io_deinit(buf_t *bp);
+/** @brief
+ *
+ */
+typedef struct {
+    int from_fd;
+    char buf[BUFSIZE];
+    int offset;
+    int datasize;
+} pipe_t;
+
+buf_t* init_buf();
+void deinit_buf(buf_t *bp);
+pipe_t* init_pipe();
 
 int full(buf_t *bp);
 int empty(buf_t *bp);
@@ -33,5 +53,6 @@ void io_shrink(buf_t *bp);
 
 int io_recv(int sock, buf_t *bp);
 int io_send(int sock, buf_t *bp);
+int io_pipe(int sock, pipe_t *pp);
 
 #endif

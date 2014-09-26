@@ -121,7 +121,7 @@ static int open_file(char *uri, int *size, char *mimetype, char *last_modifiled)
 static int internal_handler(http_client_t *client, int flag) {
     char buf[MAXBUF];
     char last_modifiled[128], date[128], mimetype[128];
-    int n, size, fd;
+    int size, fd;
     time_t current_time;
 
     if ((fd = open_file(client->req->uri, &size, mimetype, last_modifiled)) < 0)
@@ -145,11 +145,11 @@ static int internal_handler(http_client_t *client, int flag) {
     client_write_string(client, "\r\n");
 
     if (flag == F_GET) {
-        while ((n = read(fd, buf, MAXBUF)) > 0)
-            client_write(client, buf, n);
+        client->pipe = init_pipe();
+        client->pipe->from_fd = fd;
     }
-
-    close(fd);
+    else
+        close(fd);
 
     return 0;
 }
@@ -160,6 +160,8 @@ static int internal_handler(http_client_t *client, int flag) {
  */
 int handle_get(http_client_t *client) {
     log_msg(L_INFO, "Handle GET request. URI: %s\n", client->req->uri);
+    /* Block the output until the entire response has been sent */
+    client->status = C_PIPING;
     return internal_handler(client, F_GET);
 }
 
@@ -170,6 +172,7 @@ int handle_get(http_client_t *client) {
  */
 int handle_head(http_client_t *client) {
     log_msg(L_INFO, "Handle HEAD request. URI: %s\n", client->req->uri);
+    client->status = C_IDLE;
     return internal_handler(client, F_HEAD);
 }
 

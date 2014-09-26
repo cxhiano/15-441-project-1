@@ -155,18 +155,33 @@ void serve(unsigned short port) {
 			 */
 			nbytes = 1;
 
-			if (FD_ISSET(client->fd, &read_fds)) {//New data arrived!
+			// New data arrived!
+			if (client->status != C_PIPING && FD_ISSET(client->fd, &read_fds))
 				nbytes = io_recv(client->fd, client->in);
-				if (nbytes > 0) {
-					if (http_parse(client) == -1) {
-						io_send(client->fd, client->out);
-						nbytes = -1;	//Indicates that the client should be deleted
-					}
-					if (empty(client->in)) io_shrink(client->in);
+
+			if (nbytes > 0) {
+				if (http_parse(client) == -1) {
+					// Something goes wrong and beyond repair.
+					io_send(client->fd, client->out); 	// Response error
+					nbytes = -1;	// End the connection
 				}
+
+				// Free part of the buffer if a lot of data has been processed
+				if (empty(client->in)) io_shrink(client->in);
 			}
-			if (nbytes > 0 && FD_ISSET(client->fd, &write_fds) &&
-					 client->out->pos < client->out->datasize) //Time to send more data
+
+			// Need to send data to client from some fd
+			if (nbytes > 0 && client->status == C_PIPING) {
+				nbytes = io_pipe(client->fd, client->pipe);
+				// Piping complete
+				if (nbytes == 1)
+					client->status = C_IDLE;
+			}
+
+			// Send data to client
+			if (nbytes > 0 && client->status != C_PIPING &&
+					FD_ISSET(client->fd, &write_fds) &&
+					 client->out->pos < client->out->datasize)
 				nbytes = io_send(client->fd, client->out);
 
 			if (nbytes <= 0) { //Delete client
