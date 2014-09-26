@@ -156,11 +156,13 @@ int io_pipe(int sock, pipe_t *pp) {
         pp->datasize = read(pp->from_fd, pp->buf, BUFSIZE);
         if (pp->datasize == -1) {
             close(pp->from_fd);
+            remove_read_fd(pp->from_fd);
             log_error("io_pipe read error");
             return -1;
         }
         if (pp->datasize == 0) { // Got EOF. Piping completed
             close(pp->from_fd);
+            remove_read_fd(pp->from_fd);
             return 1;
         }
         pp->offset = 0;
@@ -168,6 +170,7 @@ int io_pipe(int sock, pipe_t *pp) {
     n = send(sock, pp->buf + pp->offset, pp->datasize - pp->offset, 0);
     if (n == -1) {
         close(pp->from_fd);
+        remove_read_fd(pp->from_fd);
         log_error("io_pipe send error");
         return -1;
     }

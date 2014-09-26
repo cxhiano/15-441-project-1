@@ -94,7 +94,7 @@ void serve(unsigned short port) {
 
 	http_client_t *client,
 				  *prev; //previous item in linked list when iterating
-	int nbytes;
+	int nbytes, bad;
 
 	if ((server_fd = setup_server_socket(port)) == -1) return;
 	client_head = NULL;
@@ -140,42 +140,45 @@ void serve(unsigned short port) {
 		prev = NULL;
 		for (client = client_head; client != NULL; ) {
 			/*
-			 * Normally, nbytes will be the number of bytes received or sent.
-			 * When error occurs, nbytes will be set to -1. And when nbytes<=0,
-			 * the client will be deleted.
+			 * Normally, bad will be 0 normally. When erro occurs, bad will
+			 * be set to 1. And corresponding socket will be closed.
 			 */
-			nbytes = 1;
+			bad = 0;
 
 			// New data arrived!
-			if (client->status != C_PIPING && test_read_fd(client->fd))
+			if (test_read_fd(client->fd)) {
 				nbytes = io_recv(client->fd, client->in);
+				if (nbytes == -1) bad = 1;
+			}
 
-			if (nbytes > 0) {
+			if (!bad && client->status != C_PIPING) {
 				if (http_parse(client) == -1) {
 					// Something goes wrong and beyond repair.
 					io_send(client->fd, client->out); 	// Response error
-					nbytes = -1;	// End the connection
+					bad = 1;	// End the connection
 				}
 
 				// Free part of the buffer if a lot of data has been processed
 				if (empty(client->in)) io_shrink(client->in);
 			}
 
-			// Need to send data to client from some fd
-			if (nbytes > 0 && client->status == C_PIPING) {
-				nbytes = io_pipe(client->fd, client->pipe);
-				// Piping complete
-				if (nbytes == 1)
-					client->status = C_IDLE;
+			// Send data to client
+			if (!bad && test_write_fd(client->fd)) {
+				if (client->out->pos < client->out->datasize) {
+					nbytes = io_send(client->fd, client->out);
+					if (nbytes == -1) bad = 1;
+				} else if (!bad && client->status == C_PIPING &&
+						test_read_fd(client->pipe->from_fd)) {
+					// Need to pipe data to client from some fd
+					nbytes = io_pipe(client->fd, client->pipe);
+					// Piping complete
+					if (nbytes == 1)
+						client->status = C_IDLE;
+					if (nbytes == -1) bad = 1;
+				}
 			}
 
-			// Send data to client
-			if (nbytes > 0 && client->status != C_PIPING &&
-					test_write_fd(client->fd) &&
-					client->out->pos < client->out->datasize)
-				nbytes = io_send(client->fd, client->out);
-
-			if (nbytes <= 0) { //Delete client
+			if (bad) { //Delete client
 				remove_read_fd(client_fd);
 				remove_write_fd(client_fd);
 

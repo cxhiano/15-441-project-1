@@ -14,6 +14,7 @@
 #include "config.h"
 #include "request_handler.h"
 #include "http_client.h"
+#include "io.h"
 
 static char* get_mimetype(char* path) {
     char* ext = path + strlen(path) - 1;
@@ -147,6 +148,7 @@ static int internal_handler(http_client_t *client, int flag) {
     if (flag == F_GET) {
         client->pipe = init_pipe();
         client->pipe->from_fd = fd;
+        add_read_fd(fd);
     }
     else
         close(fd);
