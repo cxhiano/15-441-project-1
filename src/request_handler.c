@@ -109,17 +109,15 @@ static int open_file(char *uri, int *size, char *mimetype, char *last_modifiled)
     return fd;
 }
 
-/** @brief Internal GET and HEAD handler which only return headers
+/** @brief Handler for serving static file
  *
- *  This process will be called by both handle_get and handle_head. It only
- *  send response line and response header to the client.
+ *  Send required response line and response headers to client and if the method
+ *  is GET, a pipe between the open file and client socket will be setup
  *
  *  @param client A pointer to corresponding client object
- *  @param flag Indicate the request type which will be used to decide whether
- *         or not the message body should be return
- *  @return 0 if OK. Response status code on error
+ *  @return 0 if OK. Return response status code on error
  */
-static int internal_handler(http_client_t *client, int flag) {
+static int server_static_file(http_client_t *client) {
     char buf[MAXBUF];
     char last_modifiled[128], date[128], mimetype[128];
     int size, fd;
@@ -150,7 +148,7 @@ static int internal_handler(http_client_t *client, int flag) {
      * just pipe the file directly to the client socket. See io_pipe() in io.c
      * for more information
      */
-    if (flag == F_GET) {
+    if (client->req->method == M_GET) {
         client->pipe = init_pipe();
         client->pipe->from_fd = fd;
         add_read_fd(fd);
@@ -160,6 +158,107 @@ static int internal_handler(http_client_t *client, int flag) {
 
     return 0;
 }
+
+/** @brief
+ *
+ */
+static char** setup_envp(http_client_t *client) {
+    char** envp;
+
+    envp = NULL;
+
+    return envp;
+}
+
+/** @brief
+ *
+ *  @return
+ */
+static int cgi_handler(http_client_t *client) {
+    pid_t pid;
+    int stdin_pipe[2], stdout_pipe[2];
+    int writecnt;
+    char **envp, **argv;
+
+    log_error("cgi not implemented");
+    return 0;
+    /* Setup pipe */
+    /* 0 can be read from, 1 can be written to */
+    if (pipe(stdin_pipe) < 0) {
+        log_error("launch_cgi setup stdin_pipe error");
+        return -1;
+    }
+    if (pipe(stdout_pipe) < 0) {
+        log_error("launch_cgi setup stdin_pipe error");
+        return -1;
+    }
+
+    /* Create subprocess */
+    if ((pid = fork()) < 0) {
+        log_error("launch_cgi fork() error");
+        return -1;
+    }
+
+    /* Subprocess invokes cgi script */
+    if (pid == 0) {
+        close(stdin_pipe[1]);
+        close(stdout_pipe[0]);
+
+        if (dup2(stdin_pipe[0], fileno(stdin)) == -1) {
+            log_error("dup2 stdin_pipe error");
+            exit(EXIT_FAILURE);
+        }
+        if (dup2(stdout_pipe[1], fileno(stdout)) == -1) {
+            log_error("dup2 stdout_pipe error");
+            exit(EXIT_FAILURE);
+        }
+
+        argv = NULL;
+        envp = setup_envp(client);
+        if (execve(argv[0], argv, envp)) {
+            log_error("exceve error");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    /* */
+    if (pid > 0) {
+        close(stdin_pipe[0]);
+        close(stdout_pipe[1]);
+
+        /***** TODO *****/
+        writecnt = 0;
+        /*
+         * Write request body to subprocess here
+         */
+
+         /* Setup piping here, the server will pipes the content to client socket */
+         client->pipe = init_pipe();
+         client->pipe->from_fd = stdout_pipe[0];
+         client->status = C_PIPING;
+
+         return 0;
+    }
+
+
+    log_msg(L_ERROR, "Control should never reach here!!!");
+    return -1;
+}
+
+/** @brief Internal handler
+ *
+ *  This process will be called by both handle_get and handle_head. It only
+ *  send response line and response header to the client. And if the request
+ *  method is GET, a pipe between the file and client socket will be setup.
+ *
+ *  @param client A pointer to corresponding client object
+ *  @return 0 if OK. Response status code on error
+ */
+static int internal_handler(http_client_t *client) {
+    cgi_handler(client);
+    return server_static_file(client);
+}
+
 /** @brief Handle HTTP GET request
  *
  *  @param client A pointer to corresponding client object
@@ -169,7 +268,7 @@ int handle_get(http_client_t *client) {
     log_msg(L_INFO, "Handle GET request. URI: %s\n", client->req->uri);
     /* Block the output until the entire response has been sent */
     client->status = C_PIPING;
-    return internal_handler(client, F_GET);
+    return internal_handler(client);
 }
 
 /** @brief Handle HTTP HEAD request
@@ -180,7 +279,7 @@ int handle_get(http_client_t *client) {
 int handle_head(http_client_t *client) {
     log_msg(L_INFO, "Handle HEAD request. URI: %s\n", client->req->uri);
     client->status = C_IDLE;
-    return internal_handler(client, F_HEAD);
+    return internal_handler(client);
 }
 
 /** @brief Handle HTTP POST request

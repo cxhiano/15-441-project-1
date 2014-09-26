@@ -176,6 +176,11 @@ void serve(unsigned short port) {
 					if (nbytes == 1)
 						client->status = C_IDLE;
 					if (nbytes == -1) bad = 1;
+					// Deinit client pipe
+					if (nbytes != 0) {
+						free(client->pipe);
+						client->pipe = NULL;
+					}
 				}
 			}
 
