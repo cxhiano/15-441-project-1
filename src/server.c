@@ -23,7 +23,7 @@
 
 int terminate = 0;
 
-static int server_fd;
+static int http_fd;
 
 /** @brief Create and config a socket on given port. */
 static int setup_server_socket(unsigned short port) {
@@ -62,6 +62,37 @@ static int setup_server_socket(unsigned short port) {
 	return server_fd;
 }
 
+/** @brief
+ *
+ */
+static void accept_connection(int server_fd, http_client_t **client_head) {
+	int client_fd;
+	socklen_t client_addr_len;
+	struct sockaddr_in client_addr;
+	http_client_t *client;
+
+	client_addr_len = sizeof(client_addr);
+	if ((client_fd = accept(server_fd, (struct sockaddr *)&client_addr,
+							(socklen_t *)&client_addr_len)) == -1) {
+		log_error("Error accepting connection.");
+		return;
+	}
+	//Add socket to fd list
+	add_read_fd(client_fd);
+	add_write_fd(client_fd);
+	//Make client_fd a non-blocking socket
+	fcntl(client_fd, F_SETFL, O_NONBLOCK);
+	//Insert into client list
+	client = new_client(client_fd);
+	//Put at the head of client list
+	if (*client_head == NULL)
+		*client_head = client;
+	else {
+		client->next = (*client_head)->next;
+		(*client_head)->next = client;
+	}
+}
+
 /** @brief Finalize the server
  *
  *  Free all memory and close all sockets.
@@ -69,7 +100,7 @@ static int setup_server_socket(unsigned short port) {
 void finalize() {
 	http_client_t *client, *next;
 
-	close(server_fd);
+	close(http_fd);
 
 	for (client = client_head; client != NULL; client = next) {
 		next = client->next;
@@ -88,15 +119,11 @@ void finalize() {
  *  @return Should never return
  */
 void serve(unsigned short port) {
-	int client_fd;
-	socklen_t client_addr_len;
-	struct sockaddr_in client_addr;
-
 	http_client_t *client,
 				  *prev; //previous item in linked list when iterating
 	int nbytes, bad;
 
-	if ((server_fd = setup_server_socket(port)) == -1) return;
+	if ((http_fd = setup_server_socket(port)) == -1) return;
 	client_head = NULL;
 
 	//Ignore SIGPIPE
@@ -104,10 +131,9 @@ void serve(unsigned short port) {
 
 	//initialize fd lists
 	init_select_context();
-	add_read_fd(server_fd);
+	add_read_fd(http_fd);
 
 	/*===============Start accepting requests================*/
-	client_addr_len = sizeof(client_addr);
 	while (!terminate) {
 		if (io_select() == -1) {
 			log_error("select error");
@@ -115,27 +141,8 @@ void serve(unsigned short port) {
 		}
 
 		//New request!
-		if (test_read_fd(server_fd)) {
-			if ((client_fd = accept(server_fd, (struct sockaddr *)&client_addr,
-									(socklen_t *)&client_addr_len)) == -1) {
-				log_error("Error accepting connection.");
-				continue;
-			}
-			//Add socket to fd list
-			add_read_fd(client_fd);
-			add_write_fd(client_fd);
-			//Make client_fd a non-blocking socket
-			fcntl(client_fd, F_SETFL, O_NONBLOCK);
-			//Insert into client list
-			client = new_client(client_fd);
-			//Put at the head of client list
-			if (client_head == NULL)
-				client_head = client;
-			else {
-				client->next = client_head->next;
-				client_head->next = client;
-			}
-		}
+		if (test_read_fd(http_fd))
+			accept_connection(http_fd, &client_head);
 
 		prev = NULL;
 		for (client = client_head; client != NULL; ) {
@@ -186,8 +193,8 @@ void serve(unsigned short port) {
 			}
 
 			if (bad || (client->status == C_IDLE && !client->alive)) { //Delete client
-				remove_read_fd(client_fd);
-				remove_write_fd(client_fd);
+				remove_read_fd(client->fd);
+				remove_write_fd(client->fd);
 
 				//Remove from the linked list
 				if (prev == NULL)

@@ -6,6 +6,7 @@
 #ifndef __HTTP_CLIENT__
 #define __HTTP_CLIENT__
 
+#include <netinet/in.h>
 #include "io.h"
 
 /* http response code */
@@ -81,6 +82,7 @@ typedef struct http_client {
     int alive;              //<!indicates if the client should be kept alive
     buf_t *in, *out;        //<!input and output buffer assigned to this client
     http_request_t* req;     //<!current request from this client
+    char remote_ip[INET6_ADDRSTRLEN];   //<!ip address of the client
     struct http_client* next;   //<!next client in the linked list
 } http_client_t;
 
