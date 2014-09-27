@@ -340,6 +340,8 @@ static int cgi_handler(http_client_t *client) {
 
     /* Main routine continues */
     if (pid > 0) {
+        log_msg(L_INFO, "Start child process %d\n", pid);
+
         close(stdin_pipe[0]);
         close(stdout_pipe[1]);
 

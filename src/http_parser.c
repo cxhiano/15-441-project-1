@@ -79,7 +79,7 @@ static int parse_request_line(http_request_t* req, char *line) {
 
     //Method not allowed.
     if (req->method == -1) {
-        log_msg(L_ERROR, "Method not allowed: %s\n", req->method);
+        log_msg(L_ERROR, "Method not allowed: %s\n", method);
         return METHOD_NOT_ALLOWED;
     }
 

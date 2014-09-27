@@ -31,6 +31,17 @@ static void sigterm_handler(int sig) {
 	exit(EXIT_SUCCESS);
 }
 
+/**
+ * Reap terminated child process
+ */
+static void sigchld_handler(int sig) {
+	pid_t pid;
+	int status;
+
+	while ((pid = waitpid(-1, &status, WNOHANG|WUNTRACED)) > 0)
+		log_msg(L_INFO, "Reap child process %d\n", pid);
+}
+
 static void usage() {
 	fprintf(stderr, "Usage: ./lisod <HTTP port> <HTTPS port> <log file> <lock file> <www folder>");
 	fprintf(stderr, "<CGI script path> <private key file> <certificate file>\n");
@@ -103,6 +114,7 @@ static void daemonlize(char* lock_file) {
     // Signal handling
     signal(SIGHUP, sighup_handler);
    	signal(SIGTERM, sigterm_handler);
+   	signal(SIGCHLD, sigchld_handler);
 
 	config_log();
 
@@ -129,6 +141,8 @@ int main(int argc, char* argv[])
 	*/
 
 	daemonlize(lock_file);
+   	signal(SIGCHLD, sigchld_handler);
+   	log_mask = L_ERROR | L_INFO;
 
 	serve(http_port);
 
