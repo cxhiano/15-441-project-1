@@ -223,7 +223,7 @@ static char** setup_envp(http_client_t* client) {
     /* GATEWAY_INTERFACE */
     envp[3] = create_string("GATEWAY_INTERFACE=CGI/1.1");
     /* PATH_INFO */
-    envp[4] = create_string("PATH_INFO=");
+    envp[4] = create_string("PATH_INFO=%s", req->path);
     /* PATH_TRANSLATED */
     envp[5] = create_string("PATH_TRANSLATED=");
     /* QUERY_STRING */
@@ -250,7 +250,7 @@ static char** setup_envp(http_client_t* client) {
     }
     envp[11] = create_string("REQUEST_METHOD=%s", tmp);
     /* SCRIPT_NAME */
-    envp[12] = create_string("SCRIPT_NAME=%s", req->path);
+    envp[12] = create_string("SCRIPT_NAME=/cgi");
     /* SERVER_NAME */
     envp[13] = create_string("SERVER_NAME=Liso/1.0");
     /* SERVER_PORT */

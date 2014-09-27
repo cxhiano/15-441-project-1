@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <openssl/ssl.h>
 #include "server.h"
 #include "io.h"
 #include "log.h"
@@ -64,8 +65,13 @@ static int setup_server_socket(unsigned short port) {
 	return server_fd;
 }
 
-/** @brief
+/** @brief Accept connection from server_fd. If sucess, construct a client
+ *	  	   struct and append it to the client linked list started with
+ *   	   client_head
  *
+ *  @param server_fd The server file descriptor which will be passed into
+ * 		   accept()
+ *  @param client_head The pointer to the head of a client linked list
  */
 static void accept_connection(int server_fd, http_client_t **client_head) {
 	int client_fd, ip_addr;
