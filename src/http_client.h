@@ -63,7 +63,8 @@ typedef struct http_request {
     char path[MAX_URI_LEN];
     char *body;
     int is_cgi;
-    int content_len;
+    int content_length;
+    int cnt_headers;
     http_header_t *headers; //Headers in a linked list
 } http_request_t;
 

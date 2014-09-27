@@ -4,6 +4,7 @@
  *  @author Chao Xin(cxin)
  */
 #include <limits.h>
+#include <stdarg.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -161,20 +162,119 @@ static int server_static_file(http_client_t *client) {
     return 0;
 }
 
-/** @brief
- *
- */
-static char** setup_envp(http_client_t *client) {
-    char** envp;
+/** @brief */
+static char* create_string(char* format, ...) {
+    char buf[MAXBUF];
+    char *str;
 
-    envp = NULL;
+    va_list arguments;
+    va_start(arguments, format);
+    vsprintf(buf, format, arguments);
+    va_end(arguments);
+
+    str = malloc(sizeof(char) * (strlen(buf) + 1));
+    strcpy(str, buf);
+    str[strlen(buf) + 1] = '\0';
+    return str;
+}
+
+/** @brief Translate a http request header to a cgi environment variable
+ *
+ *  '-' to '_'. Lowcase to uppercase
+ */
+static void translate_header(char* http_header, char* cgi_var) {
+    int i;
+    char c;
+
+    for (i = 0; i < strlen(http_header); ++i) {
+        c = http_header[i];
+        cgi_var[i] = c;
+        if (c == '-') cgi_var[i] = '_';
+        if (c >= 'a' && c <= 'z')
+            cgi_var[i] = c - 'a' + 'A';
+    }
+    cgi_var[strlen(http_header)] = '\0';
+}
+
+/** @brief Setup and return environment variables for cgi script */
+static char** setup_envp(http_client_t* client) {
+    int RFC_VARS = 17;
+    char** envp;
+    char* tmp;
+    char buf[MAXBUF];
+    http_header_t *h;
+    int i;
+    http_request_t *req = client->req;
+
+    envp = malloc(sizeof(char*) * (RFC_VARS + req->cnt_headers + 1));
+    /* AUTH_TYPE */
+    envp[0] = create_string("AUTH_TYPE=");
+    /* CONTENT_LENGTH */
+    if (req->method == M_POST)
+        envp[1] = create_string("CONTENT_LENGTH=%d", req->content_length);
+    else
+        envp[1] = create_string("CONTENT_LENGTH=");
+    /* CONTENT_TYPE */
+    tmp = get_request_header(req, "content-type");
+    if (tmp == NULL)
+        envp[2] = create_string("CONTENT_TYPE=");
+    else
+        envp[2] = create_string("CONTENT_TYPE=%s", tmp);
+    /* GATEWAY_INTERFACE */
+    envp[3] = create_string("GATEWAY_INTERFACE=CGI/1.1");
+    /* PATH_INFO */
+    envp[4] = create_string("PATH_INFO=");
+    /* PATH_TRANSLATED */
+    envp[5] = create_string("PATH_TRANSLATED=");
+    /* QUERY_STRING */
+    envp[6] = create_string("QUERY_STRING=%s", req->query);
+    /* REMOTE_ADDR */
+    envp[7] = create_string("REMOTE_ADDR=");
+    /* REMOTE_HOST */
+    envp[8] = create_string("REMOTE_HOST=");
+    /* REMOTE_IDENT */
+    envp[9] = create_string("REMOTE_IDENT=");
+    /* REMOTE_USER */
+    envp[10] = create_string("REMOTE_USER=");
+    /* REQUEST_METHOD */
+    tmp = NULL;
+    if (req->method == M_HEAD) tmp = "HEAD";
+    if (req->method == M_GET) tmp = "GET";
+    if (req->method == M_POST) tmp = "POST";
+    if (tmp == NULL)  {
+        log_msg(L_ERROR, "Unexpected request method: %d\n", req->method);
+        tmp = "";
+    }
+    envp[11] = create_string("REQUEST_METHOD=%s", tmp);
+    /* SCRIPT_NAME */
+    envp[12] = create_string("SCRIPT_NAME=%s", req->path);
+    /* SERVER_NAME */
+    envp[13] = create_string("SERVER_NAME=Liso/1.0");
+    /* SERVER_PORT */
+    envp[14] = create_string("SERVER_PORT=%d", http_port);
+    /* SERVER_PROTOCOL */
+    envp[15] = create_string("SERVER_PROTOCOL=%s", "HTTP/1.1");
+    /* SERVER_SOFTWARE */
+    envp[16] = create_string("SERVER_SOFTWARE=Liso/1.0");
+    /* HTTP request headers */
+    i = RFC_VARS; // Index in envp
+    for (h = req->headers; h != NULL; h = h->next) {
+        translate_header(h->key, buf);
+        envp[i++] = create_string("HTTP_%s=%s", buf, h->val);
+    }
+    // Terminate the array by NULL
+    envp[i] = NULL;
 
     return envp;
 }
 
-/** @brief
+/** @brief Handle a CGI request
  *
- *  @return
+ *  Use fork() to create a new process to run cgi script. Use pipe to feed
+ *  request body to stdin of the cgi script. Setup pipe for stdout of the
+ *  cgi script.
+ *
+ *  @return 0 if ok. HTTP status code if something goes wrong
  */
 static int cgi_handler(http_client_t *client) {
     pid_t pid;
@@ -245,7 +345,7 @@ static int cgi_handler(http_client_t *client) {
 
         /* Write request body to subprocess */
         if (client->req->method == M_POST) {
-            bytes_left = client->req->content_len;
+            bytes_left = client->req->content_length;
             /* We don't want to be block when passing data to subprocess */
             fcntl(stdin_pipe[1], F_SETFL, O_NONBLOCK);
             while ((n = write(stdin_pipe[1], client->req->body,
@@ -287,8 +387,12 @@ static int cgi_handler(http_client_t *client) {
 static int internal_handler(http_client_t *client) {
     if (client->req->is_cgi) {
         return cgi_handler(client);
+    } else if (client->req->method != M_POST) {
+        return server_static_file(client);
     }
-    return server_static_file(client);
+
+    // POST to a static file is not allowed
+    return SERVICE_UNAVAILABLE;
 }
 
 /** @brief Handle HTTP GET request

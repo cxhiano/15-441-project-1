@@ -77,6 +77,7 @@ http_request_t* new_request() {
     http_request_t *req;
 
     req = malloc(sizeof(http_request_t));
+    req->cnt_headers = 0;
     req->headers = NULL;
     req->body = NULL;
 

@@ -154,6 +154,7 @@ static int parse_header(http_request_t* req, char* line) {
         return -1;
     }
 
+    ++req->cnt_headers;
     /* Insert new header into header list in request object */
     header->next = req->headers;
     req->headers = header;
@@ -195,9 +196,9 @@ int http_parse(http_client_t *client) {
 
     /*
      *  Read request headers. When finish reading request headers of a POST
-     *  request without error, client->req->content_len will be set
-     *  correspondingly. Thus client->req->content_len == -1 means the request
-     *  header section has not ended.
+     *  request without error, client->req->content_length will be set
+     *  correspondingly. Thus client->req->content_length == -1 means the
+     *  request header section has not ended.
      */
     while (client->status == C_PHEADER && client_readline(client, line) > 0) {
         log_msg(L_HTTP_DEBUG, "%s\n", line);
@@ -215,7 +216,7 @@ int http_parse(http_client_t *client) {
                     if (buf[i] < '0' || buf[i] >'9') //each char in range ['0', '9']
                         return end_request(client, BAD_REQUEST);
 
-                client->req->content_len = atoi(buf);
+                client->req->content_length = atoi(buf);
 
                 /* Now start receiving body */
                 client->status = C_PBODY;
@@ -245,10 +246,10 @@ int http_parse(http_client_t *client) {
      */
     if (client->status == C_PBODY) {
         // Reveive complete body?
-        if (client->in->datasize - client->in->pos >= client->req->content_len) {
+        if (client->in->datasize - client->in->pos >= client->req->content_length) {
             /* Let body points to corresponding memory in the input buffer */
             client->req->body = client->in->buf + client->in->pos;
-            client->in->pos += client->req->content_len;
+            client->in->pos += client->req->content_length;
             ret = handle_post(client);
 
             if (ret != 0)
