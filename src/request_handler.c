@@ -43,7 +43,7 @@ static char* get_mimetype(char* path) {
  *  The passed-in uri will be concatenated with www_folder to make the full
  *  path. The size, type and last modified date will be retrieve.
  *
- *  @param uri URI from HTTP request
+ *  @param file_path URI from HTTP request
  *  @param size The pointer to the variable which stores the file size
  *  @param mimetype The pointer to a string buffer which will be used to store
  *                  the mimetype
@@ -52,7 +52,7 @@ static char* get_mimetype(char* path) {
  *  @return File descriptor of the openned file if success. Negate of the
  *          corresponding http response code if error occurs.
  */
-static int open_file(char *uri, int *size, char *mimetype, char *last_modifiled) {
+static int open_file(char *file_path, int *size, char *mimetype, char *last_modifiled) {
     struct stat s;
     char path[2 * PATH_MAX];
     int fd;
@@ -62,7 +62,7 @@ static int open_file(char *uri, int *size, char *mimetype, char *last_modifiled)
         log_error("handle_get error: realpath error");
         return -INTERNAL_SERVER_ERROR;
     }
-    strcat(path, uri);
+    strcat(path, file_path);
 
     /* Check if the file exists */
     if (stat(path, &s) == -1) {
@@ -123,7 +123,7 @@ static int server_static_file(http_client_t *client) {
     int size, fd;
     time_t current_time;
 
-    if ((fd = open_file(client->req->uri, &size, mimetype, last_modifiled)) < 0)
+    if ((fd = open_file(client->req->path, &size, mimetype, last_modifiled)) < 0)
         return -fd;
 
     current_time = time(NULL);
@@ -180,8 +180,9 @@ static int cgi_handler(http_client_t *client) {
     int writecnt;
     char **envp, **argv;
 
+    log_msg(L_ERROR, "%s %s", client->req->path, client->req->query);
     log_error("cgi not implemented");
-    return 0;
+    return NOT_IMPLEMENTED;
     /* Setup pipe */
     /* 0 can be read from, 1 can be written to */
     if (pipe(stdin_pipe) < 0) {
@@ -255,7 +256,10 @@ static int cgi_handler(http_client_t *client) {
  *  @return 0 if OK. Response status code on error
  */
 static int internal_handler(http_client_t *client) {
-    cgi_handler(client);
+    if (client->req->is_cgi) {
+        cgi_handler(client);
+        return NOT_IMPLEMENTED;
+    }
     return server_static_file(client);
 }
 
@@ -265,10 +269,15 @@ static int internal_handler(http_client_t *client) {
  *  @return 0 if OK. Response status code if error.
  */
 int handle_get(http_client_t *client) {
-    log_msg(L_INFO, "Handle GET request. URI: %s\n", client->req->uri);
+    int ret = internal_handler(client);
+
+    log_msg(L_INFO, "Handle GET request. PATH: %s\n", client->req->path);
     /* Block the output until the entire response has been sent */
-    client->status = C_PIPING;
-    return internal_handler(client);
+    if (ret == 0)
+        client->status = C_PIPING;
+    else
+        client->status = C_IDLE;
+    return ret;
 }
 
 /** @brief Handle HTTP HEAD request
@@ -277,9 +286,11 @@ int handle_get(http_client_t *client) {
  *  @return 0 if OK. Response status code if error.
  */
 int handle_head(http_client_t *client) {
-    log_msg(L_INFO, "Handle HEAD request. URI: %s\n", client->req->uri);
+    int ret = internal_handler(client);
+
+    log_msg(L_INFO, "Handle HEAD request. PATH: %s\n", client->req->path);
     client->status = C_IDLE;
-    return internal_handler(client);
+    return ret;
 }
 
 /** @brief Handle HTTP POST request
@@ -288,7 +299,7 @@ int handle_head(http_client_t *client) {
  *  @return 0 if OK. Response status code if error.
  */
 int handle_post(http_client_t *client) {
-    log_msg(L_INFO, "Handle POST request. URI: %s\n", client->req->uri);
+    log_msg(L_INFO, "Handle POST request. PATH: %s\n", client->req->path);
 
     /*
      * For now, since CGI has not been implemented, the response to a POST

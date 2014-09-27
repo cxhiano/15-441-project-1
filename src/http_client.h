@@ -41,7 +41,10 @@
 #define M_POST 2
 
 /* Maximum size of a string buffer */
-#define MAXBUF 8096
+#define MAXBUF 8196
+
+/* Maximum length of a URI */
+#define MAX_URI_LEN 2048
 
 /** @brief Store information of a single http header.
  *
@@ -56,8 +59,10 @@ typedef struct http_header {
 /** @brief Store information of a single request */
 typedef struct http_request {
     int method;
-    char uri[MAXBUF];
+    char query[MAX_URI_LEN];
+    char path[MAX_URI_LEN];
     char *body;
+    int is_cgi;
     int content_len;
     http_header_t *headers; //Headers in a linked list
 } http_request_t;

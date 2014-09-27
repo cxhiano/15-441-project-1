@@ -10,15 +10,65 @@
 #include "request_handler.h"
 #include "log.h"
 
+/** @brief Check if string str start with string sub
+ *  @return 1 if true, 0 if false
+ */
+static int startwith(char* str, char* sub) {
+    int i = 0;
+    if (strlen(sub) > strlen(str))
+        return 0;
+    for (i = 0; i < strlen(sub); ++i)
+        if (str[i] != sub[i])
+            return 0;
+    return 1;
+}
+
+/** @brief Parse a uri
+ *
+ *  Check if the given uri points to a static file or a cgi script. The
+ *  path to the static file or cgi path is stored in req->path. When the uri
+ *  points to a cgi script, the query string is stored in req->query.
+ */
+static void parse_uri(http_request_t* req, char* uri) {
+    char *cgi_head = "/cgi/";
+    char *cgi_path_start, *query_start;
+    int n = strlen(uri),
+        cgi_head_len = strlen(cgi_head);
+
+    if (startwith(uri, cgi_head)) {     // Cgi?
+        req->is_cgi = 1;
+        cgi_path_start = uri + cgi_head_len - 1;
+        query_start = strchr(uri, '?');
+        if (query_start == NULL) {      // No query string
+            strncpy(req->path, cgi_path_start, n - cgi_head_len + 1);
+            req->path[n - cgi_head_len + 1] = '\0';
+            req->query[0] = '\0';
+        } else {                // With query string
+            strncpy(req->path, cgi_path_start, query_start - cgi_path_start);
+            req->path[query_start - cgi_path_start] = '\0';
+            strncpy(req->query, query_start + 1, uri + n - query_start - 1);
+            req->query[uri + n - query_start - 1] = '\0';
+        }
+    } else {                        // Static file
+        req->is_cgi = 0;
+        strcpy(req->path, uri);
+    }
+}
+
 /** @brief Parse the first line of a request
  *
  *  @return 0 on success. HTTP status code on error.
  */
 static int parse_request_line(http_request_t* req, char *line) {
-    char method[MAXBUF], version[MAXBUF];
+    char method[MAXBUF], uri[MAXBUF], version[MAXBUF];
 
-    if (sscanf(line, "%s %s %s", method, req->uri, version) < 3) {
+    if (sscanf(line, "%s %s %s", method, uri, version) < 3) {
         log_msg(L_ERROR, "Bad request line: %s\n", line);
+        return BAD_REQUEST;
+    }
+
+    if (strlen(uri) > MAX_URI_LEN) {
+        log_msg(L_ERROR, "URI too long\n");
         return BAD_REQUEST;
     }
 
@@ -38,6 +88,8 @@ static int parse_request_line(http_request_t* req, char *line) {
         log_msg(L_ERROR, "Version not supported: %s\n", version);
         return HTTP_VERSION_NOT_SUPPORTED;
     }
+
+    parse_uri(req, uri);
 
     return 0;
 }
