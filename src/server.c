@@ -26,7 +26,7 @@
 
 int terminate = 0;
 
-static int http_fd;
+static int http_fd, https_fd;
 
 /** @brief Create and config a socket on given port. */
 static int setup_server_socket(unsigned short port) {
@@ -124,6 +124,7 @@ void finalize() {
 	http_client_t *client, *next;
 
 	close(http_fd);
+	close(https_fd);
 
 	for (client = client_head; client != NULL; client = next) {
 		next = client->next;
@@ -133,20 +134,20 @@ void finalize() {
 
 /** @brief Create a concurrent server to serve on given port
  *
+ *  The server will serve on both http_port and https_port(see config.h).
  *  Use select() to handle multiple socket. Each time a new connection
  *  established, the newly created socket will be made non-blocking so that the
  *  server can read as much data as possible each time by polling the socket.
  *
- *  @param port Serve on this port
- *
  *  @return Should never return
  */
-void serve(unsigned short port) {
+void serve() {
 	http_client_t *client,
 				  *prev; //previous item in linked list when iterating
 	int nbytes, bad;
 
-	if ((http_fd = setup_server_socket(port)) == -1) return;
+	if ((http_fd = setup_server_socket(http_port)) == -1) return;
+	if ((https_fd = setup_server_socket(https_port)) == -1) return;
 	client_head = NULL;
 
 	//Ignore SIGPIPE
@@ -155,6 +156,7 @@ void serve(unsigned short port) {
 	//initialize fd lists
 	init_select_context();
 	add_read_fd(http_fd);
+	add_read_fd(https_fd);
 
 	/*===============Start accepting requests================*/
 	while (!terminate) {

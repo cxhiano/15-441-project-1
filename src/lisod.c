@@ -144,7 +144,7 @@ int main(int argc, char* argv[])
    	signal(SIGCHLD, sigchld_handler);
    	log_mask = L_ERROR | L_INFO;
 
-	serve(http_port);
+	serve();
 
 	return 0;
 }

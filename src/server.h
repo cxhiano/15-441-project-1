@@ -19,7 +19,7 @@
  */
 int terminate;
 
-void serve(unsigned short port);
+void serve();
 
 void finalize();
 
