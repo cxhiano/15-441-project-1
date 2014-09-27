@@ -213,9 +213,9 @@ int http_parse(http_client_t *client) {
                 if (strlen(buf) == 0) return BAD_REQUEST;
                 for (i = 0; i < strlen(buf); ++i)
                     if (buf[i] < '0' || buf[i] >'9') //each char in range ['0', '9']
-                return end_request(client, BAD_REQUEST);
+                        return end_request(client, BAD_REQUEST);
 
-                client->req->content_len =  atoi(buf);
+                client->req->content_len = atoi(buf);
 
                 /* Now start receiving body */
                 client->status = C_PBODY;
@@ -227,9 +227,7 @@ int http_parse(http_client_t *client) {
             else {
                 /* The client signal a "Connection: Close" */
                 if (connection_close(client->req))
-                    ret = -1;
-                else
-                    ret = 0;
+                    client->alive = 0;
 
                 return ret;
             }
@@ -258,9 +256,7 @@ int http_parse(http_client_t *client) {
             else {
                 /* The client signal a "Connection: Close" */
                 if (connection_close(client->req))
-                    ret = -1;
-                else
-                    ret = 0;
+                    client->alive = 0;
 
                 return ret;
             }

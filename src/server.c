@@ -146,13 +146,13 @@ void serve(unsigned short port) {
 			bad = 0;
 
 			// New data arrived!
-			if (test_read_fd(client->fd)) {
+			if (client->alive && test_read_fd(client->fd)) {
 				nbytes = io_recv(client->fd, client->in);
 				if (nbytes == -1) bad = 1;
 			}
 
 			// Parse data
-			if (!bad && client->status != C_PIPING) {
+			if (!bad && client->alive && client->status != C_PIPING) {
 				if (http_parse(client) == -1) {
 					// Something goes wrong and beyond repair.
 					io_send(client->fd, client->out); 	// Response error
@@ -165,6 +165,7 @@ void serve(unsigned short port) {
 
 			// Send data to client
 			if (!bad && test_write_fd(client->fd)) {
+				// Send data from buffer
 				if (client->out->pos < client->out->datasize) {
 					nbytes = io_send(client->fd, client->out);
 					if (nbytes == -1) bad = 1;
@@ -184,7 +185,7 @@ void serve(unsigned short port) {
 				}
 			}
 
-			if (bad) { //Delete client
+			if (bad || (client->status == C_IDLE && !client->alive)) { //Delete client
 				remove_read_fd(client_fd);
 				remove_write_fd(client_fd);
 

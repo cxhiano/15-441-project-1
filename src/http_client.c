@@ -89,6 +89,7 @@ http_client_t* new_client(int fd) {
 
     client->fd = fd;
     client->status = C_IDLE;
+    client->alive = 1;
 
     client->in = init_buf();
     client->out = init_buf();
@@ -234,26 +235,22 @@ static int is_fatal(int code) {
  *          should be closed.
  */
 int end_request(http_client_t *client, int code) {
-    int ret;
-
+    client->status = C_IDLE;
     send_response_line(client, code);
 
     /* The client signal a "Connection: Close" */
     if (connection_close(client->req))
-        ret = -1;
-    else
-        ret=  0;
+        client->alive = 0;
 
     if (is_fatal(code)) {
         send_header(client, "Connection", "Close");
         client_write_string(client, "\r\n");
+        client->alive = 0;
         return -1;
     }
     client_write_string(client, "\r\n");
 
-    client->status = C_IDLE;
-
-    return ret;
+    return 0;
 }
 
 /** @brief Retrieve the value of a request header by key

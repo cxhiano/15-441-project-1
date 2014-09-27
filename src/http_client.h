@@ -76,7 +76,8 @@ typedef struct http_request {
 typedef struct http_client {
     int fd;                 //<!client's file descriptor
     pipe_t *pipe;           //<!pipe from a file or cgi output
-    int status;             //<!thte current status of this client
+    int status;             //<!the current status of this client
+    int alive;              //<!indicates if the client should be kept alive
     buf_t *in, *out;        //<!input and output buffer assigned to this client
     http_request_t* req;     //<!current request from this client
     struct http_client* next;   //<!next client in the linked list
