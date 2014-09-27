@@ -4,12 +4,14 @@
  *  @author Chao Xin(cxin)
  */
 #include <limits.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+#include <errno.h>
 #include "log.h"
 #include "config.h"
 #include "request_handler.h"
@@ -176,28 +178,43 @@ static char** setup_envp(http_client_t *client) {
  */
 static int cgi_handler(http_client_t *client) {
     pid_t pid;
+    char path[PATH_MAX * 2];
     int stdin_pipe[2], stdout_pipe[2];
-    int writecnt;
-    char **envp, **argv;
+    int bytes_left, n;
+    char **envp;
+    char* argv[] = { NULL, NULL };
 
-    log_msg(L_ERROR, "%s %s", client->req->path, client->req->query);
-    log_error("cgi not implemented");
-    return NOT_IMPLEMENTED;
+    /* Get the absolute path of cgi_path */
+    if (realpath(cgi_path, path) == NULL) {
+        log_error("cgi_handler error: realpath error");
+        return -INTERNAL_SERVER_ERROR;
+    }
+    strcat(path, client->req->path);
+    /* Check whether the script exists. Check permission */
+    if (access(path, X_OK) == -1) {
+        log_error("cgi_handler error");
+        if (errno == ENOENT)
+            return NOT_FOUND;
+        else
+            return INTERNAL_SERVER_ERROR;
+    }
+
+    argv[0] = path;
     /* Setup pipe */
     /* 0 can be read from, 1 can be written to */
     if (pipe(stdin_pipe) < 0) {
         log_error("launch_cgi setup stdin_pipe error");
-        return -1;
+        return INTERNAL_SERVER_ERROR;
     }
     if (pipe(stdout_pipe) < 0) {
         log_error("launch_cgi setup stdin_pipe error");
-        return -1;
+        return INTERNAL_SERVER_ERROR;
     }
 
     /* Create subprocess */
     if ((pid = fork()) < 0) {
         log_error("launch_cgi fork() error");
-        return -1;
+        return INTERNAL_SERVER_ERROR;
     }
 
     /* Subprocess invokes cgi script */
@@ -214,7 +231,6 @@ static int cgi_handler(http_client_t *client) {
             exit(EXIT_FAILURE);
         }
 
-        argv = NULL;
         envp = setup_envp(client);
         if (execve(argv[0], argv, envp)) {
             log_error("exceve error");
@@ -222,21 +238,34 @@ static int cgi_handler(http_client_t *client) {
         }
     }
 
-    /* */
+    /* Main routine continues */
     if (pid > 0) {
         close(stdin_pipe[0]);
         close(stdout_pipe[1]);
 
-        /***** TODO *****/
-        writecnt = 0;
-        /*
-         * Write request body to subprocess here
-         */
+        /* Write request body to subprocess */
+        if (client->req->method == M_POST) {
+            bytes_left = client->req->content_len;
+            /* We don't want to be block when passing data to subprocess */
+            fcntl(stdin_pipe[1], F_SETFL, O_NONBLOCK);
+            while ((n = write(stdin_pipe[1], client->req->body,
+                    bytes_left)) > 0)
+                bytes_left -= n;
 
-         /* Setup piping here, the server will pipes the content to client socket */
-         client->pipe = init_pipe();
-         client->pipe->from_fd = stdout_pipe[0];
-         client->status = C_PIPING;
+            // Error writing bytes to subprocess
+            if (bytes_left > 0 || n == -1) {
+                log_msg(L_ERROR, "fail to send request body to subprocess\n");
+                kill(pid, SIGKILL);
+                close(stdin_pipe[1]);
+                return INTERNAL_SERVER_ERROR;
+            }
+        }
+        close(stdin_pipe[1]);
+
+        /* setup pipe from subprocess output */
+        client->pipe = init_pipe();
+        client->pipe->from_fd = stdout_pipe[0];
+        add_read_fd(stdout_pipe[0]);
 
          return 0;
     }
@@ -257,8 +286,7 @@ static int cgi_handler(http_client_t *client) {
  */
 static int internal_handler(http_client_t *client) {
     if (client->req->is_cgi) {
-        cgi_handler(client);
-        return NOT_IMPLEMENTED;
+        return cgi_handler(client);
     }
     return server_static_file(client);
 }
@@ -272,7 +300,11 @@ int handle_get(http_client_t *client) {
     int ret = internal_handler(client);
 
     log_msg(L_INFO, "Handle GET request. PATH: %s\n", client->req->path);
-    /* Block the output until the entire response has been sent */
+
+    /*
+     * If internal_handler processes without error, the content of the static
+     * file will be pipe to client.
+     */
     if (ret == 0)
         client->status = C_PIPING;
     else
@@ -299,11 +331,16 @@ int handle_head(http_client_t *client) {
  *  @return 0 if OK. Response status code if error.
  */
 int handle_post(http_client_t *client) {
+    int ret = internal_handler(client);
     log_msg(L_INFO, "Handle POST request. PATH: %s\n", client->req->path);
 
     /*
-     * For now, since CGI has not been implemented, the response to a POST
-     * request would be 501 Not Implemented
+     * If successfully running cgi script, the output will be piped to client.
      */
-    return NOT_IMPLEMENTED;
+    if (ret == 0)
+        client->status = C_PIPING;
+    else
+        client->status = C_IDLE;
+
+    return ret;
 }

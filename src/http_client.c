@@ -251,6 +251,8 @@ int end_request(http_client_t *client, int code) {
     }
     client_write_string(client, "\r\n");
 
+    client->status = C_IDLE;
+
     return ret;
 }
 
