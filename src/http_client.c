@@ -97,6 +97,9 @@ http_client_t* new_client(int fd) {
 
     client->req = new_request();
 
+    client->remote_ip[0] = '\0';
+    client->remote_host = NULL;
+
     client->next = NULL;
 
     return client;

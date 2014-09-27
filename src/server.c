@@ -8,9 +8,11 @@
  *  @author Chao Xin(cxin)
  */
 #include <stdlib.h>
+#include <netdb.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <arpa/inet.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -66,9 +68,10 @@ static int setup_server_socket(unsigned short port) {
  *
  */
 static void accept_connection(int server_fd, http_client_t **client_head) {
-	int client_fd;
+	int client_fd, ip_addr;
 	socklen_t client_addr_len;
 	struct sockaddr_in client_addr;
+	struct hostent *host;
 	http_client_t *client;
 
 	client_addr_len = sizeof(client_addr);
@@ -77,14 +80,28 @@ static void accept_connection(int server_fd, http_client_t **client_head) {
 		log_error("Error accepting connection.");
 		return;
 	}
-	//Add socket to fd list
+	// Add socket to fd list
 	add_read_fd(client_fd);
 	add_write_fd(client_fd);
-	//Make client_fd a non-blocking socket
+	// Make client_fd a non-blocking socket
 	fcntl(client_fd, F_SETFL, O_NONBLOCK);
 	//Insert into client list
 	client = new_client(client_fd);
-	//Put at the head of client list
+	// Record ip address
+	ip_addr = client_addr.sin_addr.s_addr;
+	if (inet_ntop(AF_INET, &client_addr, client->remote_ip,
+			INET_ADDRSTRLEN) == NULL)
+		log_error("Record client IP address error");
+
+	// Get host name
+	host = gethostbyaddr(&(client_addr.sin_addr), sizeof(struct in_addr), AF_INET);
+	if (host == NULL)
+		log_error("Record client host name error");
+	client->remote_host = host->h_name;
+
+	log_msg(L_INFO, "Incoming request from %s\n", client->remote_ip);
+
+	// Put at the head of client list
 	if (*client_head == NULL)
 		*client_head = client;
 	else {

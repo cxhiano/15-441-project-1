@@ -229,9 +229,12 @@ static char** setup_envp(http_client_t* client) {
     /* QUERY_STRING */
     envp[6] = create_string("QUERY_STRING=%s", req->query);
     /* REMOTE_ADDR */
-    envp[7] = create_string("REMOTE_ADDR=");
+    envp[7] = create_string("REMOTE_ADDR=%s", client->remote_ip);
     /* REMOTE_HOST */
-    envp[8] = create_string("REMOTE_HOST=");
+    if (client->remote_host == NULL)
+        envp[8] = create_string("REMOTE_HOST=");
+    else
+        envp[8] = create_string("REMOTE_HOST=%s", client->remote_host);
     /* REMOTE_IDENT */
     envp[9] = create_string("REMOTE_IDENT=");
     /* REMOTE_USER */
