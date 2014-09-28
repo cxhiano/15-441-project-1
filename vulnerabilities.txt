@@ -2,5 +2,10 @@
 If client sends very large data, the automatically increased buffer will
 eventually runs memory out.
 
-2. Client Request Large File
-The server will read the entire file into memory before sending it to the client.
+2. Client Request Large File -------- fixed
+
+3. Process Management
+The process management of the server is simple. If a child process does not
+terminate and continuesly eats up resources, there is no machanism in the
+server to deal with it.
+

@@ -1,0 +1,27 @@
+1. echo.py
+echo.py is a CGI script that prints out all its environment variables and its
+input. We can check if CGI scripts are launched correctly.
+
+2. sleep.py
+sleep.py is a CGI script that prints out its input one line at a time. The
+process will sleep 10s between two output.
+
+Send a request to this sleep.py and at the same time launch another client
+to send other request.
+
+The purpose of this CGI script is to check if the output is handled correctly
+by select(). The output of sleep.py should not block and interfere other output
+
+2. test_ssl.py
+Use SSL connection to send HTTP request.
+
+3. Browser
+Use browser to send requests to both https port and http port.
+
+4. Child Reaping
+Send Pipelined CGI Request to Server. Check if all terminated child processes
+are reaped.
+
+5. Bad CGI
+Send request to some file that cannot be executed.
+

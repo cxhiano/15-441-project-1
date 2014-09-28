@@ -225,9 +225,6 @@ void serve() {
 		return;
 	}
 
-	//Ignore SIGPIPE
-	signal(SIGPIPE, SIG_IGN);
-
 	//initialize fd lists
 	init_select_context();
 	add_read_fd(http_fd);

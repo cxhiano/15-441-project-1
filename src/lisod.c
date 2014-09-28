@@ -113,10 +113,11 @@ static void daemonize(char* lock_file) {
     signal(SIGHUP, sighup_handler);
    	signal(SIGTERM, sigterm_handler);
    	signal(SIGCHLD, sigchld_handler);
+	signal(SIGPIPE, SIG_IGN);
 
 	config_log();
 
-    log_msg(L_INFO, "Successfully daemonized lisod process, pid %d.",
+    log_msg(L_INFO, "Successfully daemonized lisod process, pid %d.\n",
     	getpid());
 }
 
