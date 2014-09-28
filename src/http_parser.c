@@ -26,32 +26,45 @@ static int startwith(char* str, char* sub) {
 /** @brief Parse a uri
  *
  *  Check if the given uri points to a static file or a cgi script. The
- *  path to the static file or cgi path is stored in req->path. When the uri
+ *  path to the static file or cgi path is stored in buf. When the uri
  *  points to a cgi script, the query string is stored in req->query.
  */
 static void parse_uri(http_request_t* req, char* uri) {
     char *cgi_head = "/cgi/";
-    char *cgi_path_start, *query_start;
+    char *cgi_start, *path_start, *query_start;
     int n = strlen(uri),
         cgi_head_len = strlen(cgi_head);
 
+    query_start = strchr(uri, '?');
+    if (query_start == NULL) {      // No query string
+        strcpy(req->uri, uri);
+        req->query[0] = '\0';
+    } else {                // With query string
+        strncpy(req->uri, uri, query_start - uri);
+        req->uri[query_start - uri] = '\0';
+        strcpy(req->query, query_start + 1);
+    }
+
     if (startwith(uri, cgi_head)) {     // Cgi?
         req->is_cgi = 1;
-        cgi_path_start = uri + cgi_head_len - 1;
-        query_start = strchr(uri, '?');
-        if (query_start == NULL) {      // No query string
-            strncpy(req->path, cgi_path_start, n - cgi_head_len + 1);
-            req->path[n - cgi_head_len + 1] = '\0';
-            req->query[0] = '\0';
-        } else {                // With query string
-            strncpy(req->path, cgi_path_start, query_start - cgi_path_start);
-            req->path[query_start - cgi_path_start] = '\0';
-            strncpy(req->query, query_start + 1, uri + n - query_start - 1);
-            req->query[uri + n - query_start - 1] = '\0';
+        cgi_start = uri + cgi_head_len - 1;
+        // Further parse into SCRIPT_NAME and PATH_INFO
+        path_start = strchr(cgi_start + 1, '/');
+        if (path_start == NULL) {
+            strcpy(req->script_name, cgi_start);
+            req->path[0] = '\0';
+        } else {
+            strncpy(req->script_name, cgi_start, path_start - cgi_start);
+            req->script_name[path_start - cgi_start] = '\0';
+            if (query_start == NULL)
+                strcpy(req->path, path_start);
+            else {
+                strncpy(req->path, path_start, query_start - path_start);
+                req->path[query_start - path_start] = '\0';
+            }
         }
-    } else {                        // Static file
+    } else {
         req->is_cgi = 0;
-        strcpy(req->path, uri);
     }
 }
 

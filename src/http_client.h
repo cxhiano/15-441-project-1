@@ -61,8 +61,10 @@ typedef struct http_header {
 /** @brief Store information of a single request */
 typedef struct http_request {
     int method;
+    char uri[MAX_URI_LEN];
     char query[MAX_URI_LEN];
     char path[MAX_URI_LEN];
+    char script_name[MAX_URI_LEN];
     char *body;
     int is_cgi;
     int content_length;

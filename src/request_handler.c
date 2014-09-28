@@ -62,14 +62,14 @@ static int open_file(char *file_path, int *size, char *mimetype, char *last_modi
 
     /* Get the absolute path of www_folder */
     if (realpath(www_folder, path) == NULL) {
-        log_error("handle_get error: realpath error");
+        log_error("open_file error: realpath error");
         return -INTERNAL_SERVER_ERROR;
     }
     strcat(path, file_path);
 
     /* Check if the file exists */
     if (stat(path, &s) == -1) {
-        log_error("handle_get error: stat error");
+        log_error("open_file error: stat error");
         return -NOT_FOUND;
     }
     else {
@@ -81,27 +81,27 @@ static int open_file(char *file_path, int *size, char *mimetype, char *last_modi
             else
                 strcat(path, "/index.html");
             if (stat(path, &s) == -1) {
-                log_error("handle_get error: stat error");
+                log_error("open_file error: stat error");
                 return -NOT_FOUND;
             }
         }
     }
 
     if ((fd = open(path, O_RDONLY)) == -1) {
-        log_error("handle_get error: open error");
+        log_error("open_file error: open error");
         return -INTERNAL_SERVER_ERROR;
     }
 
     /* get the size of file by lseek to the end of the file */
     if ((*size = lseek(fd, 0, SEEK_END)) == -1) {
         close(fd);
-        log_error("handle_get error: lseek error");
+        log_error("open_file error: lseek error");
         return -INTERNAL_SERVER_ERROR;
     }
     /* restore offset */
     if (lseek(fd, 0, SEEK_SET) == -1) {
         close(fd);
-        log_error("handle_get error: lseek error");
+        log_error("open_file error: lseek error");
         return -INTERNAL_SERVER_ERROR;
     }
 
@@ -126,7 +126,7 @@ static int server_static_file(http_client_t *client) {
     int size, fd;
     time_t current_time;
 
-    if ((fd = open_file(client->req->path, &size, mimetype, last_modifiled)) < 0)
+    if ((fd = open_file(client->req->uri, &size, mimetype, last_modifiled)) < 0)
         return -fd;
 
     current_time = time(NULL);
@@ -198,7 +198,7 @@ static void translate_header(char* http_header, char* cgi_var) {
 
 /** @brief Setup and return environment variables for cgi script */
 static char** setup_envp(http_client_t* client) {
-    int RFC_VARS = 17;
+    int RFC_VARS = 18;
     char** envp;
     char* tmp;
     char buf[MAXBUF];
@@ -250,7 +250,7 @@ static char** setup_envp(http_client_t* client) {
     }
     envp[11] = create_string("REQUEST_METHOD=%s", tmp);
     /* SCRIPT_NAME */
-    envp[12] = create_string("SCRIPT_NAME=/cgi");
+    envp[12] = create_string("SCRIPT_NAME=/cgi%s", req->script_name);
     /* SERVER_NAME */
     envp[13] = create_string("SERVER_NAME=Liso/1.0");
     /* SERVER_PORT */
@@ -259,6 +259,8 @@ static char** setup_envp(http_client_t* client) {
     envp[15] = create_string("SERVER_PROTOCOL=%s", "HTTP/1.1");
     /* SERVER_SOFTWARE */
     envp[16] = create_string("SERVER_SOFTWARE=Liso/1.0");
+    /* REQUEST_URI */
+    envp[17] = create_string("REQUEST_URI=%s", req->uri);
     /* HTTP request headers */
     i = RFC_VARS; // Index in envp
     for (h = req->headers; h != NULL; h = h->next) {
@@ -292,7 +294,7 @@ static int cgi_handler(http_client_t *client) {
         log_error("cgi_handler error: realpath error");
         return -INTERNAL_SERVER_ERROR;
     }
-    strcat(path, client->req->path);
+    strcat(path, client->req->script_name);
     /* Check whether the script exists. Check permission */
     if (access(path, X_OK) == -1) {
         log_error("cgi_handler error");
@@ -408,7 +410,7 @@ static int internal_handler(http_client_t *client) {
 int handle_get(http_client_t *client) {
     int ret = internal_handler(client);
 
-    log_msg(L_INFO, "Handle GET request. PATH: %s\n", client->req->path);
+    log_msg(L_INFO, "Handle GET request. URI: %s\n", client->req->uri);
 
     /*
      * If internal_handler processes without error, the content of the static
@@ -429,7 +431,7 @@ int handle_get(http_client_t *client) {
 int handle_head(http_client_t *client) {
     int ret = internal_handler(client);
 
-    log_msg(L_INFO, "Handle HEAD request. PATH: %s\n", client->req->path);
+    log_msg(L_INFO, "Handle HEAD request. URI: %s\n", client->req->uri);
     client->status = C_IDLE;
     return ret;
 }
@@ -441,7 +443,7 @@ int handle_head(http_client_t *client) {
  */
 int handle_post(http_client_t *client) {
     int ret = internal_handler(client);
-    log_msg(L_INFO, "Handle POST request. PATH: %s\n", client->req->path);
+    log_msg(L_INFO, "Handle POST request. URI: %s\n", client->req->uri);
 
     /*
      * If successfully running cgi script, the output will be piped to client.
