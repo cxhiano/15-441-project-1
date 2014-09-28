@@ -56,23 +56,21 @@ static void usage() {
 	fprintf(stderr, "	certificate file – certificate file path\n");
 }
 
-/* Set up log system */
+/** @brief Set up log system */
 static void config_log() {
 	log_mask = L_ERROR | L_HTTP_DEBUG | L_INFO;
 	set_log_file(log_file_name);
 }
 
-static void daemonlize(char* lock_file) {
+/** @brief daemonize the server */
+static void daemonize(char* lock_file) {
 	int pid, lfp, i;
 
-	return;
 	pid = fork();
 	if (pid < 0) exit(EXIT_FAILURE); // fork error
 	if (pid > 0) exit(EXIT_SUCCESS); // parent exit;
-
-	//Only fork once?
-
 	// Daemon continues
+
 	signal(SIGHUP, SIG_IGN); // Ignore SIGHUP for now. Prevent terminating
 
 	if (setsid() == -1) { // get a new sid
@@ -89,7 +87,7 @@ static void daemonlize(char* lock_file) {
 	}
 
 	if (lockf(lfp, F_TLOCK, 0) < 0) {
-		log_error("lockf error");
+		perror("lockf error");
 		exit(EXIT_FAILURE);
 	}
 
@@ -98,7 +96,7 @@ static void daemonlize(char* lock_file) {
 
 	// Close file descriptor
 	for (i = getdtablesize(); i >= 0; --i)
-		close(i);
+		if (i != lfp) close(i);
 
 	//redirect stdin stdout stderr to /dev/null
 	open("/dev/null", O_RDWR);	// Allocate fd 0(stdin)
@@ -138,7 +136,7 @@ int main(int argc, char* argv[])
 	private_key_file = argv[7];
 	certificate_file = argv[8];
 
-	daemonlize(lock_file);
+	daemonize(lock_file);
    	signal(SIGCHLD, sigchld_handler);
    	log_mask = L_ERROR | L_INFO;
 
