@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include "config.h"
 #include "log.h"
+#include "io.h"
 #include "http_client.h"
 
 /** brief Compare two string(case insensitive) */
@@ -96,10 +97,9 @@ http_client_t* new_client(int fd) {
     client->out = init_buf();
 
     client->req = new_request();
-
     client->remote_ip[0] = '\0';
     client->remote_host = NULL;
-
+    client->ssl_context = NULL;
     client->next = NULL;
 
     return client;
@@ -108,11 +108,18 @@ http_client_t* new_client(int fd) {
 /** @brief Destroy a client struct, free all its resource */
 void deinit_client(http_client_t *client) {
     if (client == NULL) return;
+    remove_read_fd(client->fd);
+    remove_write_fd(client->fd);
+
     close(client->fd);
     log_msg(L_INFO, "Closed fd %d\n", client->fd);
     deinit_buf(client->in);
     deinit_buf(client->out);
     deinit_request(client->req);
+    if (client->ssl_context) {
+        SSL_shutdown(client->ssl_context);
+        SSL_free(client->ssl_context);
+    }
     free(client);
 }
 
@@ -144,6 +151,7 @@ void client_write(http_client_t *client, char* buf, int buf_len) {
 
 /** @brief Write a string to client */
 void client_write_string(http_client_t *client, char* str) {
+    log_msg(L_HTTP_DEBUG, "%s", str);
     client_write(client, str, strlen(str));
 }
 

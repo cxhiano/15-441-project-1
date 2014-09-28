@@ -15,9 +15,9 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <signal.h>
 #include <openssl/ssl.h>
+#include <openssl/err.h>
 #include "server.h"
 #include "io.h"
 #include "log.h"
@@ -27,6 +27,7 @@
 int terminate = 0;
 
 static int http_fd, https_fd;
+static SSL_CTX *ssl_context;
 
 /** @brief Create and config a socket on given port. */
 static int setup_server_socket(unsigned short port) {
@@ -65,6 +66,70 @@ static int setup_server_socket(unsigned short port) {
 	return server_fd;
 }
 
+/** @brief Setup ssl_context, load private key, certificate
+ *
+ *  @return 0 if success. -1 if erorr occurs
+ */
+static int ssl_setup() {
+    SSL_load_error_strings();
+    SSL_library_init();
+
+    /* we want to use TLSv1 only */
+    if ((ssl_context = SSL_CTX_new(TLSv1_server_method())) == NULL)
+    {
+		log_msg(L_ERROR, "Error creating SSL context.\n");
+        return -1;
+    }
+
+    /* register private key */
+    if (SSL_CTX_use_PrivateKey_file(ssl_context, private_key_file,
+                                    SSL_FILETYPE_PEM) == 0)
+    {
+        SSL_CTX_free(ssl_context);
+        log_msg(L_ERROR, "Error associating private key.\n");
+        return -1;
+    }
+
+    /* register public key (certificate) */
+    if (SSL_CTX_use_certificate_file(ssl_context, certificate_file,
+                                     SSL_FILETYPE_PEM) == 0)
+    {
+        SSL_CTX_free(ssl_context);
+        log_msg(L_ERROR, "Error associating certificate.\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+/** @brief Wrap client socket with SSL
+ *
+ *  @return 0 if sucess. -1 if error
+ */
+static int ssl_wrap(http_client_t *client) {
+	int ret, err;
+
+	if ((client->ssl_context = SSL_new(ssl_context)) == NULL) {
+		log_msg(L_ERROR, "ssl_wrap SSL_new error.\n");
+		return -1;
+	}
+
+    if (SSL_set_fd(client->ssl_context, client->fd) == 0) {
+    	log_msg(L_ERROR, "ssl_wrap SSL_set_fd error.\n");
+    	return -1;
+    }
+
+    if ((ret = SSL_accept(client->ssl_context)) <= 0) {
+    	err = SSL_get_error(client->ssl_context, ret);
+    	log_msg(L_ERROR, "ssl_wrap SSL_accept returns %d: %s\n", err,
+    		    ERR_reason_error_string(err));
+
+    	return -1;
+    }
+
+    return 0;
+}
+
 /** @brief Accept connection from server_fd. If sucess, construct a client
  *	  	   struct and append it to the client linked list started with
  *   	   client_head
@@ -72,8 +137,10 @@ static int setup_server_socket(unsigned short port) {
  *  @param server_fd The server file descriptor which will be passed into
  * 		   accept()
  *  @param client_head The pointer to the head of a client linked list
+ *  @return A pointer to the newly created client struct. NULL if error
  */
-static void accept_connection(int server_fd, http_client_t **client_head) {
+static http_client_t* accept_connection(int server_fd,
+										http_client_t **client_head) {
 	int client_fd, ip_addr;
 	socklen_t client_addr_len;
 	struct sockaddr_in client_addr;
@@ -83,20 +150,18 @@ static void accept_connection(int server_fd, http_client_t **client_head) {
 	client_addr_len = sizeof(client_addr);
 	if ((client_fd = accept(server_fd, (struct sockaddr *)&client_addr,
 							(socklen_t *)&client_addr_len)) == -1) {
-		log_error("Error accepting connection.");
-		return;
+		log_error("Error accepting connection");
+		return NULL;
 	}
 	// Add socket to fd list
 	add_read_fd(client_fd);
 	add_write_fd(client_fd);
-	// Make client_fd a non-blocking socket
-	fcntl(client_fd, F_SETFL, O_NONBLOCK);
 	//Insert into client list
 	client = new_client(client_fd);
 	// Record ip address
 	ip_addr = client_addr.sin_addr.s_addr;
 	if (inet_ntop(AF_INET, &client_addr, client->remote_ip,
-			INET_ADDRSTRLEN) == NULL)
+				  INET_ADDRSTRLEN) == NULL)
 		log_error("Record client IP address error");
 
 	// Get host name
@@ -114,6 +179,8 @@ static void accept_connection(int server_fd, http_client_t **client_head) {
 		client->next = (*client_head)->next;
 		(*client_head)->next = client;
 	}
+
+	return client;
 }
 
 /** @brief Finalize the server
@@ -125,6 +192,7 @@ void finalize() {
 
 	close(http_fd);
 	close(https_fd);
+	SSL_CTX_free(ssl_context);
 
 	for (client = client_head; client != NULL; client = next) {
 		next = client->next;
@@ -147,8 +215,15 @@ void serve() {
 	int nbytes, bad;
 
 	if ((http_fd = setup_server_socket(http_port)) == -1) return;
-	if ((https_fd = setup_server_socket(https_port)) == -1) return;
-	client_head = NULL;
+	if ((https_fd = setup_server_socket(https_port)) == -1) {
+		close(http_fd);
+		return;
+	}
+	if (ssl_setup() == -1) {
+		close(http_fd);
+		close(https_fd);
+		return;
+	}
 
 	//Ignore SIGPIPE
 	signal(SIGPIPE, SIG_IGN);
@@ -158,6 +233,8 @@ void serve() {
 	add_read_fd(http_fd);
 	add_read_fd(https_fd);
 
+	client_head = NULL;
+
 	/*===============Start accepting requests================*/
 	while (!terminate) {
 		if (io_select() == -1) {
@@ -165,9 +242,16 @@ void serve() {
 			continue;
 		}
 
-		//New request!
+		//New http request!
 		if (test_read_fd(http_fd))
-			accept_connection(http_fd, &client_head);
+			client = accept_connection(http_fd, &client_head);
+
+		//New https request!
+		if (test_read_fd(https_fd)) {
+			if ((client = accept_connection(https_fd, &client_head)))
+				if (ssl_wrap(client) == -1)
+					client->alive = 0;
+		}
 
 		prev = NULL;
 		for (client = client_head; client != NULL; ) {
@@ -179,15 +263,18 @@ void serve() {
 
 			// New data arrived!
 			if (client->alive && test_read_fd(client->fd)) {
-				nbytes = io_recv(client->fd, client->in);
+				nbytes = io_recv(client->fd, client->in, client->ssl_context);
 				if (nbytes == -1) bad = 1;
 			}
 
 			// Parse data
 			if (!bad && client->alive && client->status != C_PIPING) {
 				if (http_parse(client) == -1) {
-					// Something goes wrong and beyond repair.
-					io_send(client->fd, client->out); 	// Response error
+					/*
+					 * Something goes wrong and beyond repair. Send error code
+					 * to client before closing the connection
+					 */
+					io_send(client->fd, client->out, client->ssl_context);
 					bad = 1;	// End the connection
 				}
 
@@ -199,12 +286,15 @@ void serve() {
 			if (!bad && test_write_fd(client->fd)) {
 				// Send data from buffer
 				if (client->out->pos < client->out->datasize) {
-					nbytes = io_send(client->fd, client->out);
+					nbytes = io_send(client->fd, client->out,
+									 client->ssl_context);
+
 					if (nbytes == -1) bad = 1;
 				} else if (!bad && client->status == C_PIPING &&
 						test_read_fd(client->pipe->from_fd)) {
 					// Need to pipe data to client from some fd
-					nbytes = io_pipe(client->fd, client->pipe);
+					nbytes = io_pipe(client->fd, client->pipe,
+									 client->ssl_context);
 					// Piping complete
 					if (nbytes == 1)
 						client->status = C_IDLE;
@@ -218,9 +308,6 @@ void serve() {
 			}
 
 			if (bad || (client->status == C_IDLE && !client->alive)) { //Delete client
-				remove_read_fd(client->fd);
-				remove_write_fd(client->fd);
-
 				//Remove from the linked list
 				if (prev == NULL)
 					client_head = client->next;

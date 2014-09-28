@@ -7,6 +7,7 @@
 #define __MYIO_H__
 
 #include <unistd.h>
+#include <openssl/ssl.h>
 
 /*
  * Initial buffer size
@@ -56,9 +57,9 @@ int empty(buf_t *bp);
 void io_shrink(buf_t *bp);
 
 /* Send/recv with client */
-int io_recv(int sock, buf_t *bp);
-int io_send(int sock, buf_t *bp);
-int io_pipe(int sock, pipe_t *pp);
+int io_recv(int sock, buf_t *bp, SSL* ssl_context);
+int io_send(int sock, buf_t *bp, SSL* ssl_context);
+int io_pipe(int sock, pipe_t *pp, SSL* ssl_context);
 
 /* Select context */
 int io_select();       // Shorthand for select

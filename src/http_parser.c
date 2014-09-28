@@ -186,6 +186,9 @@ int http_parse(http_client_t *client) {
             return end_request(client, BAD_REQUEST);
         }
 
+        if (client->req != NULL) free(client->req);
+        client->req = new_request();
+
         /* parse request line and store information in client->req */
         if ((ret = parse_request_line(client->req, line)) > 0)
             return end_request(client, ret);

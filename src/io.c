@@ -61,81 +61,74 @@ void io_shrink(buf_t *bp) {
 
 /** @brief Try to recv as much data as possible
  *
- *  Call recv() until connection closed or error occurs. Required non-blocking
- *  socket. When there's temporily no more data, recv will return -1 and set
- *  errno to EWOULDBLOCK or EAGAIN. Each time received data size exceed half
- *  of buffer size, buffer will increase its capacity.
+ *  Call recv()/SSL_read() until connection closed or error occurs.
  *
- *  @param bp A pointer to a buf_t struct
+ *  @param sock Client socket
+ *  @param bp A pointer to a buf_t struct which stores received data
+ *  @param ssl_context If ssl_context if not NULL, SSL_read() will be used
+ *                     instead of recv().
  *  @return Number of bytes received on normal exit, 0 on connection closed,
  *          -1 on error.
  */
-int io_recv(int sock, buf_t *bp) {
+int io_recv(int sock, buf_t *bp, SSL* ssl_context) {
     int nbytes;
 
-    log_msg(L_IO_DEBUG, "recv from %d start.\n", sock);
-    while ((nbytes = recv(sock, bp->buf + bp->datasize, bp->bufsize - bp->datasize - 1, 0)) > 0) {
-        log_msg(L_IO_DEBUG, "----%d bytes data received.\n", nbytes);
+    if (ssl_context)
+        nbytes = SSL_read(ssl_context, bp->buf + bp->datasize,
+                          bp->bufsize - bp->datasize - 1);
+    else
+        nbytes = recv(sock, bp->buf + bp->datasize,
+                      bp->bufsize - bp->datasize - 1, 0);
+    if (nbytes > 0) {
+        log_msg(L_IO_DEBUG, "io_recv: %d bytes data received.\n", nbytes);
         bp->datasize += nbytes;
 
-        //More data! Allocate more memory
+        // Allocate more memory
         if (full(bp)) {
             bp->bufsize += bp->bufsize >> 1;
             bp->buf = realloc(bp->buf, bp->bufsize);
         }
     }
 
-    if (nbytes == 0) {
-        log_msg(L_IO_DEBUG, "Connection ends.\n");
-        return 0;
-    }
+    if (nbytes < 0)
+        log_error("io_recv error");
 
-    if (nbytes < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-        log_error("recv error!");
-        return nbytes;
-    }
-
-    log_msg(L_IO_DEBUG, "recv complete. %d bytes of data received from socket %d.\n", bp->datasize, sock);
-
-    return bp->datasize;
+    return nbytes;
 }
 
-/** @ Send data to socket sock
+/** @brief Send data to socket sock
  *
- * Repeatedly call send() to send data in buffer to socket sock until all the
- * data is sent.
+ *  Call send()/SSL_write() to send data in buffer to socket sock
  *
- * @return Number of bytes sent, -1 on error
+ *  @param sock Client socket
+ *  @param bp A pointer to a buf_t struct which store data to be sent
+ *  @param ssl_context If ssl_context if not NULL, SSL_write() will be used
+ *                     instead of send().
+ *  @return Number of bytes sent, -1 on error
  */
-int io_send(int sock, buf_t *bp) {
-    int bytes_sent = 0, nbytes;
+int io_send(int sock, buf_t *bp, SSL* ssl_context) {
+    int nbytes;
 
-    log_msg(L_IO_DEBUG, "Send start! %d bytes data to be sent to socket %d.\n",
-            bp->datasize - bp->pos, sock);
+    if (bp->pos < bp->datasize) {
+        if (ssl_context)
+            nbytes = SSL_write(ssl_context, bp->buf + bp->pos, bp->datasize - bp->pos);
+        else
+            nbytes = send(sock, bp->buf + bp->pos, bp->datasize - bp->pos, 0);
 
-    while (bp->pos < bp->datasize) {
-        nbytes = send(sock, bp->buf + bp->pos, bp->datasize - bp->pos, 0);
-
-        if (nbytes < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-                break;
-            else {
-                log_error("send error!");
-                return -1;
-            }
+        if (nbytes <= 0) {
+            log_error("io_send error");
+            return -1;
         }
 
-        log_msg(L_IO_DEBUG, "----%d bytes data sent.\n", nbytes);
+        log_msg(L_IO_DEBUG, "io_send: %d bytes sent.\n", nbytes);
         bp->pos += nbytes;
-        bytes_sent += nbytes;
     }
-    log_msg(L_IO_DEBUG, "Send complete. %d bytes of data sent to socket %d\n", bytes_sent, sock);
 
     //Shrink buffer when there is too much free space in the buffer
     if (empty(bp))
         io_shrink(bp);
 
-    return bytes_sent;
+    return nbytes;
 }
 
 /** @brief Pipe content directly to client socket without reading it extirely
@@ -144,9 +137,14 @@ int io_send(int sock, buf_t *bp) {
  *  If buf in pipe is not empty, send data in buf to socket sock. After the buf
  *  becomes empty, refill it using data read from fd associated with the pipe.
  *
+ *  @param sock Client socket
+ *  @param pp The pointer to a pipe to the file client requested or a cgi
+ *            script process output.
+ *  @param ssl_context If ssl_context if not NULL, SSL_write() will be used
+ *                     instead of send().
  *  @return 1 piping complete. 0 to be continued. -1 error.
  */
-int io_pipe(int sock, pipe_t *pp) {
+int io_pipe(int sock, pipe_t *pp, SSL *ssl_context) {
     int n;
 
     if (pp->datasize <= pp->offset) { // No data in buf
@@ -164,13 +162,21 @@ int io_pipe(int sock, pipe_t *pp) {
         }
         pp->offset = 0;
     }
-    n = send(sock, pp->buf + pp->offset, pp->datasize - pp->offset, 0);
+
+    // Send to client
+    if (ssl_context)
+        n = SSL_write(ssl_context, pp->buf + pp->offset,
+                      pp->datasize - pp->offset);
+    else
+        n = send(sock, pp->buf + pp->offset, pp->datasize - pp->offset, 0);
+
     if (n == -1) {
         close(pp->from_fd);
         remove_read_fd(pp->from_fd);
         log_error("io_pipe send error");
         return -1;
     }
+    log_msg(L_IO_DEBUG, "io_pipe: %d bytes sent.\n", n);
     pp->offset += n;
 
     return 0;

@@ -124,7 +124,7 @@ static void daemonlize(char* lock_file) {
 
 int main(int argc, char* argv[])
 {
-	if (argc < 6) {
+	if (argc < 9) {
 		usage();
 		return -1;
 	}
@@ -135,10 +135,8 @@ int main(int argc, char* argv[])
 	lock_file = argv[4];
 	www_folder = argv[5];
 	cgi_path = argv[6];
-	/*
 	private_key_file = argv[7];
 	certificate_file = argv[8];
-	*/
 
 	daemonlize(lock_file);
    	signal(SIGCHLD, sigchld_handler);
