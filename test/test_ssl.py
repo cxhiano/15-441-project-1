@@ -5,7 +5,7 @@ import sys
 if __name__ == '__main__':
     sock = socket.create_connection((sys.argv[1], sys.argv[2]))
     tls = ssl.wrap_socket(sock, cert_reqs=ssl.CERT_REQUIRED,
-                                ca_certs='../myCA/server.crt',
+                                ca_certs='../server.crt',
                                 ssl_version=ssl.PROTOCOL_TLSv1)
 
 

@@ -32,8 +32,7 @@ static int startwith(char* str, char* sub) {
 static void parse_uri(http_request_t* req, char* uri) {
     char *cgi_head = "/cgi/";
     char *cgi_start, *path_start, *query_start;
-    int n = strlen(uri),
-        cgi_head_len = strlen(cgi_head);
+    int cgi_head_len = strlen(cgi_head);
 
     query_start = strchr(uri, '?');
     if (query_start == NULL) {      // No query string

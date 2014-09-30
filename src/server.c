@@ -141,7 +141,7 @@ static int ssl_wrap(http_client_t *client) {
  */
 static http_client_t* accept_connection(int server_fd,
 										http_client_t **client_head) {
-	int client_fd, ip_addr;
+	int client_fd;
 	socklen_t client_addr_len;
 	struct sockaddr_in client_addr;
 	struct hostent *host;
@@ -159,7 +159,6 @@ static http_client_t* accept_connection(int server_fd,
 	//Insert into client list
 	client = new_client(client_fd);
 	// Record ip address
-	ip_addr = client_addr.sin_addr.s_addr;
 	if (inet_ntop(AF_INET, &client_addr, client->remote_ip,
 				  INET_ADDRSTRLEN) == NULL)
 		log_error("Record client IP address error");
