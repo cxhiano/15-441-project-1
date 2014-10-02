@@ -250,7 +250,7 @@ static char** setup_envp(http_client_t* client) {
     }
     envp[11] = create_string("REQUEST_METHOD=%s", tmp);
     /* SCRIPT_NAME */
-    envp[12] = create_string("SCRIPT_NAME=/cgi%s", req->script_name);
+    envp[12] = create_string("SCRIPT_NAME=/cgi");
     /* SERVER_NAME */
     envp[13] = create_string("SERVER_NAME=Liso/1.0");
     /* SERVER_PORT */
@@ -294,7 +294,7 @@ static int cgi_handler(http_client_t *client) {
         log_error("cgi_handler error: realpath error");
         return -INTERNAL_SERVER_ERROR;
     }
-    strcat(path, client->req->script_name);
+
     /* Check whether the script exists. Check permission */
     if (access(path, X_OK) == -1) {
         log_error("cgi_handler error");
@@ -399,7 +399,7 @@ static int internal_handler(http_client_t *client) {
     }
 
     // POST to a static file is not allowed
-    return SERVICE_UNAVAILABLE;
+    return METHOD_NOT_ALLOWED;
 }
 
 /** @brief Handle HTTP GET request

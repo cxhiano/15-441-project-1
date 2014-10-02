@@ -64,7 +64,6 @@ typedef struct http_request {
     char uri[MAX_URI_LEN];
     char query[MAX_URI_LEN];
     char path[MAX_URI_LEN];
-    char script_name[MAX_URI_LEN];
     char *body;
     int is_cgi;
     int content_length;

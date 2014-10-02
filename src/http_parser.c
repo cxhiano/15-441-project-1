@@ -46,22 +46,7 @@ static void parse_uri(http_request_t* req, char* uri) {
 
     if (startwith(uri, cgi_head)) {     // Cgi?
         req->is_cgi = 1;
-        cgi_start = uri + cgi_head_len - 1;
-        // Further parse into SCRIPT_NAME and PATH_INFO
-        path_start = strchr(cgi_start + 1, '/');
-        if (path_start == NULL) {
-            strcpy(req->script_name, cgi_start);
-            req->path[0] = '\0';
-        } else {
-            strncpy(req->script_name, cgi_start, path_start - cgi_start);
-            req->script_name[path_start - cgi_start] = '\0';
-            if (query_start == NULL)
-                strcpy(req->path, path_start);
-            else {
-                strncpy(req->path, path_start, query_start - path_start);
-                req->path[query_start - path_start] = '\0';
-            }
-        }
+        strcpy(req->path, req->uri + 4);
     } else {
         req->is_cgi = 0;
     }
@@ -92,7 +77,7 @@ static int parse_request_line(http_request_t* req, char *line) {
     //Method not allowed.
     if (req->method == -1) {
         log_msg(L_ERROR, "Method not allowed: %s\n", method);
-        return METHOD_NOT_ALLOWED;
+        return NOT_IMPLEMENTED;
     }
 
     //Wrong version
