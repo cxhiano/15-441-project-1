@@ -31,8 +31,7 @@ static int startwith(char* str, char* sub) {
  */
 static void parse_uri(http_request_t* req, char* uri) {
     char *cgi_head = "/cgi/";
-    char *cgi_start, *path_start, *query_start;
-    int cgi_head_len = strlen(cgi_head);
+    char *query_start;
 
     query_start = strchr(uri, '?');
     if (query_start == NULL) {      // No query string
@@ -76,7 +75,7 @@ static int parse_request_line(http_request_t* req, char *line) {
 
     //Method not allowed.
     if (req->method == -1) {
-        log_msg(L_ERROR, "Method not allowed: %s\n", method);
+        log_msg(L_ERROR, "Not Implemented\n", method);
         return NOT_IMPLEMENTED;
     }
 
@@ -204,8 +203,7 @@ int http_parse(http_client_t *client) {
         log_msg(L_HTTP_DEBUG, "%s\n", line);
 
         if (strlen(line) == 0) {    //Request header ends
-            if (client->req->method == M_GET) ret = handle_get(client);
-            if (client->req->method == M_HEAD) ret = handle_head(client);
+
             if (client->req->method == M_POST) {
                 buf = get_request_header(client->req, "Content-Length");
                 if (buf == NULL)
@@ -223,6 +221,8 @@ int http_parse(http_client_t *client) {
                 break;
             }
 
+            if (client->req->method == M_GET) ret = handle_get(client);
+            if (client->req->method == M_HEAD) ret = handle_head(client);
             if (ret != 0)
                 return end_request(client, ret);
             else {
