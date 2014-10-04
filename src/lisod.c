@@ -139,8 +139,6 @@ int main(int argc, char* argv[])
 	certificate_file = argv[8];
 
 	daemonize(lock_file);
-   	signal(SIGCHLD, sigchld_handler);
-   	log_mask = L_ERROR | L_INFO;
 
 	serve();
 
